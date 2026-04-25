@@ -24,8 +24,6 @@ export interface Expense {
   payment_period: 'quinzena' | 'mes';
 }
 
-// ── localStorage helpers ──────────────────────────────────────────────────────
-
 const KEYS = {
   fixedBills: 'expenses_fixed_bills',
   expenses: 'expenses_list',
@@ -34,114 +32,76 @@ const KEYS = {
 };
 
 function load<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
+  try { const r = localStorage.getItem(key); return r ? JSON.parse(r) as T : fallback; }
+  catch { return fallback; }
 }
-
-function save<T>(key: string, value: T): void {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (e) {
-    console.error('localStorage write error:', e);
-  }
+function save<T>(key: string, v: T) {
+  try { localStorage.setItem(key, JSON.stringify(v)); } catch {}
 }
-
-function uuid(): string {
-  return crypto.randomUUID
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+function uuid() {
+  return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
-
-// ── Hook ─────────────────────────────────────────────────────────────────────
 
 export const useExpensesData = () => {
-  const [fixedBills, setFixedBillsState] = useState<FixedBill[]>(() =>
-    load<FixedBill[]>(KEYS.fixedBills, [])
-  );
-  const [expenses, setExpensesState] = useState<Expense[]>(() =>
-    load<Expense[]>(KEYS.expenses, [])
-  );
-  const [savedBalanceMap, setSavedBalanceMapState] = useState<Record<string, number>>(() =>
-    load<Record<string, number>>(KEYS.savedBalances, {})
-  );
-  const [initializedMonths, setInitializedMonthsState] = useState<string[]>(() =>
-    load<string[]>(KEYS.initializedMonths, [])
-  );
+  const [fixedBills, setFixedBills] = useState<FixedBill[]>(() => load(KEYS.fixedBills, []));
+  const [expenses, setExpensesState] = useState<Expense[]>(() => load(KEYS.expenses, []));
+  const [savedBalanceMap, setSavedBalanceMap] = useState<Record<string, number>>(() => load(KEYS.savedBalances, {}));
+  const [initializedMonths, setInitializedMonths] = useState<string[]>(() => load(KEYS.initializedMonths, []));
   const [isLoading] = useState(false);
 
-  // Persist whenever state changes
   useEffect(() => { save(KEYS.fixedBills, fixedBills); }, [fixedBills]);
   useEffect(() => { save(KEYS.expenses, expenses); }, [expenses]);
   useEffect(() => { save(KEYS.savedBalances, savedBalanceMap); }, [savedBalanceMap]);
   useEffect(() => { save(KEYS.initializedMonths, initializedMonths); }, [initializedMonths]);
 
-  // ── Expenses ──────────────────────────────────────────────────────────────
-
   const addExpense = async (exp: Omit<Expense, 'id'>) => {
-    const newExp: Expense = { ...exp, id: uuid() };
-    setExpensesState(prev => [...prev, newExp]);
-    return { data: newExp, error: null };
+    const n: Expense = { ...exp, id: uuid() };
+    setExpensesState(p => [...p, n]);
+    return { data: n, error: null };
   };
-
   const addManyExpenses = async (exps: Omit<Expense, 'id'>[]) => {
-    const newExps: Expense[] = exps.map(e => ({ ...e, id: uuid() }));
-    setExpensesState(prev => [...prev, ...newExps]);
-    return { data: newExps, error: null };
+    const ns = exps.map(e => ({ ...e, id: uuid() }));
+    setExpensesState(p => [...p, ...ns]);
+    return { data: ns, error: null };
   };
-
   const updateExpense = async (id: string, updates: Partial<Expense>) => {
-    setExpensesState(prev => prev.map(e => e.id === id ? { ...e, ...updates } : e));
+    setExpensesState(p => p.map(e => e.id === id ? { ...e, ...updates } : e));
   };
-
   const deleteExpense = async (id: string) => {
-    setExpensesState(prev => prev.filter(e => e.id !== id));
+    setExpensesState(p => p.filter(e => e.id !== id));
   };
-
-  // ── Fixed Bills ───────────────────────────────────────────────────────────
-
   const addFixedBill = async (fb: Omit<FixedBill, 'id'>) => {
-    const newFb: FixedBill = { ...fb, id: uuid() };
-    setFixedBillsState(prev => [...prev, newFb]);
-    return { data: newFb, error: null };
+    const n: FixedBill = { ...fb, id: uuid() };
+    setFixedBills(p => [...p, n]);
+    return { data: n, error: null };
   };
-
   const updateFixedBill = async (id: string, updates: Partial<FixedBill>) => {
-    setFixedBillsState(prev => prev.map(fb => fb.id === id ? { ...fb, ...updates } : fb));
+    setFixedBills(p => p.map(fb => fb.id === id ? { ...fb, ...updates } : fb));
+    // Also update linked pending expenses amount if amount changed
+    if (updates.amount !== undefined) {
+      setExpensesState(p => p.map(e =>
+        e.fixed_bill_id === id && e.status === 'pending' ? { ...e, amount: updates.amount! } : e
+      ));
+    }
   };
-
   const deleteFixedBill = async (id: string) => {
-    setFixedBillsState(prev => prev.filter(fb => fb.id !== id));
-    setExpensesState(prev =>
-      prev.filter(e => !(e.fixed_bill_id === id && e.status === 'pending'))
-    );
+    setFixedBills(p => p.filter(fb => fb.id !== id));
+    setExpensesState(p => p.filter(e => !(e.fixed_bill_id === id && e.status === 'pending')));
   };
-
-  // ── Balances & Months ─────────────────────────────────────────────────────
-
   const updateSavedBalance = async (monthStr: string, amount: number) => {
-    setSavedBalanceMapState(prev => ({ ...prev, [monthStr]: amount }));
+    setSavedBalanceMap(p => ({ ...p, [monthStr]: amount }));
   };
-
   const markMonthInitialized = async (monthStr: string) => {
-    setInitializedMonthsState(prev =>
-      prev.includes(monthStr) ? prev : [...prev, monthStr]
-    );
+    setInitializedMonths(p => p.includes(monthStr) ? p : [...p, monthStr]);
   };
-
-  // setExpenses exposed for direct override (used in ExpensesTab bulk ops)
-  const setExpenses = (updater: Expense[] | ((prev: Expense[]) => Expense[])) => {
-    setExpensesState(updater as any);
+  const setExpenses = (u: Expense[] | ((p: Expense[]) => Expense[])) => {
+    setExpensesState(u as any);
   };
 
   return {
     fixedBills, expenses, savedBalanceMap, initializedMonths, isLoading,
     addExpense, addManyExpenses, updateExpense, deleteExpense,
     addFixedBill, updateFixedBill, deleteFixedBill,
-    updateSavedBalance, markMonthInitialized,
-    setExpenses,
+    updateSavedBalance, markMonthInitialized, setExpenses,
   };
 };

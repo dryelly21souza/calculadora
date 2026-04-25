@@ -61,7 +61,7 @@ export default function App() {
   };
 
   const totalSaved = useMemo(() => {
-    return Object.values(goals).reduce((acc, curr) => acc + (curr.saved15 || 0) + (curr.saved30 || 0), 0);
+    return Object.values(goals).reduce((acc: number, curr: any) => acc + (curr.saved15 || 0) + (curr.saved30 || 0), 0);
   }, [goals]);
   
   // Dashboard Calculator State
