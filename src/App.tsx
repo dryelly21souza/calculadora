@@ -76,7 +76,7 @@ export default function App() {
   const { history, isLoading, saveCalculation, deleteCalculation } = useSalaryHistory();
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
 
-  const { calendarMarks: extrasCalendar, toggleMark: toggleExtra } = useCalendarMarks();
+  const { calendarMarks: extrasCalendar, calendarPhotos, toggleMark: toggleExtra, addPhoto, removePhoto } = useCalendarMarks();
 
   useEffect(() => {
     const [yearStr, monthStr] = referenceMonth.split('-');
@@ -801,7 +801,7 @@ export default function App() {
           {activeTab === 'dashboard' && renderDashboard()}
           {activeTab === 'investments' && renderInvestments()}
           {activeTab === 'expenses' && <ExpensesTab salaryHistory={uniqueHistory} />}
-          {activeTab === 'extras' && <ExtrasCalendar extrasCalendar={extrasCalendar} toggleExtra={toggleExtra} baseSalary={baseSalary} />}
+          {activeTab === 'extras' && <ExtrasCalendar extrasCalendar={extrasCalendar} toggleExtra={toggleExtra} baseSalary={baseSalary} calendarPhotos={calendarPhotos} addPhoto={addPhoto} removePhoto={removePhoto} />}
           {activeTab === 'history' && renderHistory()}
         </div>
       </div>
