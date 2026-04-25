@@ -56,14 +56,19 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({ salaryHistory })
     return monthInvestments.reduce((acc, curr) => acc + curr.amount, 0);
   }, [monthInvestments]);
 
-  // Salary Base
+  const [ruleView, setRuleView] = useState<'mes' | 'quinzena'>('mes');
+
+  // Salary Base Breakdown
   const monthHistory = salaryHistory.find(h => h.reference_month === monthStr);
-  const netSalary = monthHistory ? Math.max(0, monthHistory.net_salary - 820.01) : 0; // Ignoring Daycare
+  const DAYCARE_ALLOWANCE = 820.01;
+  const incomeQuinzena = monthHistory?.advance_payment || 0;
+  const incomeMes = monthHistory ? Math.max(0, monthHistory.second_payment - DAYCARE_ALLOWANCE) : 0;
   
-  // 50-30-20 Rule
-  const rule50 = netSalary * 0.50;
-  const rule30 = netSalary * 0.30;
-  const rule20 = netSalary * 0.20; // This is the ideal investment target!
+  // Active Rule Values
+  const activeIncome = ruleView === 'mes' ? incomeMes : incomeQuinzena;
+  const rule50 = activeIncome * 0.50;
+  const rule30 = activeIncome * 0.30;
+  const rule20 = activeIncome * 0.20;
 
   // Future Projection (Simulated 10 years at 10% aa for visual impact)
   const futureValue10Years = totalInvestedAllTime * Math.pow(1.10, 10);
@@ -183,10 +188,21 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({ salaryHistory })
         <div className="space-y-6 lg:col-span-1">
           {/* Regra 50-30-20 */}
           <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
-            <h4 className="font-bold text-slate-800 flex items-center gap-2 mb-4">
-              <PieChart className="w-5 h-5 text-indigo-500" /> Regra 50-30-20
-            </h4>
-            <p className="text-sm text-slate-500 mb-4">Baseada no seu salário de R$ {netSalary.toLocaleString('pt-BR', {minimumFractionDigits:2})}</p>
+            <div className="flex justify-between items-start mb-4">
+              <h4 className="font-bold text-slate-800 flex items-center gap-2">
+                <PieChart className="w-5 h-5 text-indigo-500" /> Regra 50-30-20
+              </h4>
+            </div>
+
+            <div className="flex bg-slate-100 p-1 rounded-xl mb-4">
+              <button onClick={() => setRuleView('quinzena')} className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-colors ${ruleView === 'quinzena' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Quinzena</button>
+              <button onClick={() => setRuleView('mes')} className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-colors ${ruleView === 'mes' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Fim do Mês</button>
+            </div>
+
+            <p className="text-xs text-slate-500 font-medium mb-4 text-center">
+              Base: <strong className="text-slate-800">R$ {activeIncome.toLocaleString('pt-BR', {minimumFractionDigits:2})}</strong> 
+              {ruleView === 'mes' && ' (Sem Creche)'}
+            </p>
             
             <div className="space-y-3">
               <div>
