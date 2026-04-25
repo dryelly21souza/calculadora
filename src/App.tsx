@@ -26,6 +26,7 @@ import { useSalaryHistory, type SalaryCalculation } from './hooks/useSalaryHisto
 import { useCalendarMarks } from './hooks/useCalendarMarks';
 import { ExtrasCalendar } from './ExtrasCalendar';
 import { ExpensesTab } from './ExpensesTab';
+import { InvestmentsTab } from './InvestmentsTab';
 import { EditableTitle } from './components/EditableTitle';
 
 // Constants and Tables
@@ -41,28 +42,6 @@ type TabType = 'dashboard' | 'investments' | 'expenses' | 'history' | 'extras';
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  
-  const [goals, setGoals] = useState<Record<string, { goal15: number, saved15: number, goal30: number, saved30: number }>>(() => {
-    try {
-      const stored = localStorage.getItem('investment_goals');
-      return stored ? JSON.parse(stored) : {};
-    } catch {
-      return {};
-    }
-  });
-
-  const updateGoal = (month: string, field: 'goal15'|'saved15'|'goal30'|'saved30', valStr: string) => {
-    const value = parseCurrencyInput(valStr);
-    setGoals(prev => {
-      const newGoals = { ...prev, [month]: { ...(prev[month] || {goal15:0, saved15:0, goal30:0, saved30:0}), [field]: value } };
-      localStorage.setItem('investment_goals', JSON.stringify(newGoals));
-      return newGoals;
-    });
-  };
-
-  const totalSaved = useMemo(() => {
-    return Object.values(goals).reduce((acc: number, curr: any) => acc + (curr.saved15 || 0) + (curr.saved30 || 0), 0);
-  }, [goals]);
   
   // Dashboard Calculator State
   const [baseSalary, setBaseSalary] = useState<number>(0);
@@ -542,155 +521,7 @@ export default function App() {
     </div>
   );
 
-  const renderInvestments = () => (
-    <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
-      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-3xl p-6 md:p-8 text-white shadow-lg relative overflow-hidden">
-        <div className="relative z-10">
-          <h2 className="text-xl font-bold flex items-center gap-2 text-indigo-50/80 uppercase tracking-widest mb-2">
-            <TrendingUpIcon className="w-5 h-5" />
-            Minhas Reservas
-          </h2>
-          <p className="text-sm text-indigo-100 mb-2">Total de Dinheiro Guardado (Todos os Meses)</p>
-          <div className="text-4xl md:text-5xl font-black">{formatCurrency(totalSaved)}</div>
-        </div>
-        <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12 scale-150 transform translate-x-8 -translate-y-8 pointer-events-none hidden sm:block">
-          <Wallet className="w-48 h-48" />
-        </div>
-      </div>
-
-      {isLoading && uniqueHistory.length === 0 ? (
-        <div className="flex items-center justify-center p-12 bg-white rounded-3xl border border-dashed border-slate-300">
-          <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-        </div>
-      ) : uniqueHistory.length === 0 ? (
-        <div className="text-center p-12 bg-white rounded-3xl border border-dashed border-slate-300 space-y-2">
-          <p className="text-slate-400 font-medium">Nenhum cálculo salvo ainda.</p>
-          <p className="text-slate-400 text-xs text-balance">Realize um cálculo no Dashboard para liberar os meses.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <AnimatePresence>
-            {uniqueHistory.map((item) => {
-              const monthGoal = goals[item.reference_month] || { goal15: 0, saved15: 0, goal30: 0, saved30: 0 };
-              return (
-              <motion.div
-                key={`inv-${item.id}`}
-                layout
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col"
-              >
-                <div className="mb-4 text-center">
-                  <EditableTitle 
-                    storageKey={`inv_${item.id}`}
-                    defaultText={item.reference_month}
-                    className="px-3 py-1 bg-indigo-50 text-indigo-600 font-bold uppercase tracking-widest text-xs rounded-full"
-                  />
-                </div>
-                
-                <div className="space-y-6 flex-1">
-                  {/* Dia 15 Premium Block */}
-                  <div className="bg-white/50 backdrop-blur-md rounded-2xl p-5 border border-slate-100/80 shadow-[inset_0_2px_4px_rgba(255,255,255,0.7)] hover:shadow-md hover:border-slate-200 transition-all">
-                    <div className="flex justify-between items-center mb-5">
-                      <p className="text-sm text-slate-400 font-black uppercase tracking-widest">Dia 15</p>
-                      <p className="text-[11px] text-slate-400 uppercase tracking-widest font-semibold">Base: <span className="font-bold text-slate-700 text-sm">{formatCurrency(item.advance_payment)}</span></p>
-                    </div>
-
-                    <div className="space-y-4">
-                      {/* Visual 50-30-20 Bar */}
-                      <div>
-                        <div className="flex w-full h-2 rounded-full overflow-hidden mb-3 bg-slate-100">
-                          <div className="bg-rose-500 w-[50%] transition-all duration-500 hover:opacity-80" title="50% Essencial" />
-                          <div className="bg-blue-500 w-[30%] transition-all duration-500 hover:opacity-80" title="30% Lazer/Investimentos" />
-                          <div className="bg-amber-500 w-[20%] transition-all duration-500 hover:opacity-80" title="20% Reserva de Emergência" />
-                        </div>
-                        <div className="grid grid-cols-3 gap-1 text-center">
-                          <div>
-                            <p className="text-[9px] uppercase font-bold text-rose-500 tracking-wider">50% Essenc.</p>
-                            <p className="text-xs font-black text-rose-700 mt-0.5">{formatCurrency(item.advance_payment * 0.50)}</p>
-                          </div>
-                          <div>
-                            <p className="text-[9px] uppercase font-bold text-blue-500 tracking-wider">30% Livre</p>
-                            <p className="text-xs font-black text-blue-700 mt-0.5">{formatCurrency(item.advance_payment * 0.30)}</p>
-                          </div>
-                          <div>
-                            <p className="text-[9px] uppercase font-bold text-amber-500 tracking-wider">20% Reserva</p>
-                            <p className="text-xs font-black text-amber-700 mt-0.5">{formatCurrency(item.advance_payment * 0.20)}</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="pt-4 border-t border-slate-100/80">
-                        <label className="text-[10px] uppercase font-black text-emerald-600 tracking-widest mb-2 block">Saldo Guardado</label>
-                        <div className="relative group">
-                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500 text-xs font-bold transition-colors group-hover:text-emerald-600">R$</span>
-                          <input 
-                            type="text"
-                            value={formatInputDisplay(monthGoal.saved15)}
-                            onChange={(e) => updateGoal(item.reference_month, 'saved15', e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 text-sm bg-emerald-50/50 backdrop-blur-sm border border-emerald-100/50 text-emerald-800 rounded-xl focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 focus:bg-emerald-50 outline-none font-bold transition-all shadow-sm"
-                            placeholder="0,00"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Dia 30 Premium Block */}
-                  <div className="bg-white/50 backdrop-blur-md rounded-2xl p-5 border border-slate-100/80 shadow-[inset_0_2px_4px_rgba(255,255,255,0.7)] hover:shadow-md hover:border-slate-200 transition-all">
-                    <div className="flex justify-between items-center mb-5">
-                      <p className="text-sm text-slate-400 font-black uppercase tracking-widest">Dia 30</p>
-                      <p className="text-[11px] text-slate-400 uppercase tracking-widest font-semibold">Sobra: <span className="font-bold text-slate-700 text-sm">{formatCurrency(item.second_payment - DAYCARE_ALLOWANCE)}</span></p>
-                    </div>
-
-                    <div className="space-y-4">
-                      {/* Visual 50-30-20 Bar */}
-                      <div>
-                        <div className="flex w-full h-2 rounded-full overflow-hidden mb-3 bg-slate-100">
-                          <div className="bg-rose-500 w-[50%] transition-all duration-500 hover:opacity-80" />
-                          <div className="bg-blue-500 w-[30%] transition-all duration-500 hover:opacity-80" />
-                          <div className="bg-amber-500 w-[20%] transition-all duration-500 hover:opacity-80" />
-                        </div>
-                        <div className="grid grid-cols-3 gap-1 text-center">
-                          <div>
-                            <p className="text-[9px] uppercase font-bold text-rose-500 tracking-wider">50% Essenc.</p>
-                            <p className="text-xs font-black text-rose-700 mt-0.5">{formatCurrency((item.second_payment - DAYCARE_ALLOWANCE) * 0.50)}</p>
-                          </div>
-                          <div>
-                            <p className="text-[9px] uppercase font-bold text-blue-500 tracking-wider">30% Livre</p>
-                            <p className="text-xs font-black text-blue-700 mt-0.5">{formatCurrency((item.second_payment - DAYCARE_ALLOWANCE) * 0.30)}</p>
-                          </div>
-                          <div>
-                            <p className="text-[9px] uppercase font-bold text-amber-500 tracking-wider">20% Reserva</p>
-                            <p className="text-xs font-black text-amber-700 mt-0.5">{formatCurrency((item.second_payment - DAYCARE_ALLOWANCE) * 0.20)}</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="pt-4 border-t border-slate-100/80">
-                        <label className="text-[10px] uppercase font-black text-emerald-600 tracking-widest mb-2 block">Saldo Guardado</label>
-                        <div className="relative group">
-                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500 text-xs font-bold transition-colors group-hover:text-emerald-600">R$</span>
-                          <input 
-                            type="text"
-                            value={formatInputDisplay(monthGoal.saved30)}
-                            onChange={(e) => updateGoal(item.reference_month, 'saved30', e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 text-sm bg-emerald-50/50 backdrop-blur-sm border border-emerald-100/50 text-emerald-800 rounded-xl focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 focus:bg-emerald-50 outline-none font-bold transition-all shadow-sm"
-                            placeholder="0,00"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )})}
-          </AnimatePresence>
-        </div>
-      )}
-    </div>
-  );
+  // renderInvestments migrated to InvestmentsTab.tsx
 
   const renderHistory = () => (
     <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
@@ -799,7 +630,7 @@ export default function App() {
       <div className="flex-1 lg:ml-64 p-4 md:p-8 lg:p-12 overflow-y-auto w-full min-h-screen">
         <div className="max-w-6xl mx-auto">
           {activeTab === 'dashboard' && renderDashboard()}
-          {activeTab === 'investments' && renderInvestments()}
+          {activeTab === 'investments' && <InvestmentsTab salaryHistory={uniqueHistory} />}
           {activeTab === 'expenses' && <ExpensesTab salaryHistory={uniqueHistory} />}
           {activeTab === 'extras' && <ExtrasCalendar extrasCalendar={extrasCalendar} toggleExtra={toggleExtra} baseSalary={baseSalary} calendarPhotos={calendarPhotos} addPhoto={addPhoto} removePhoto={removePhoto} />}
           {activeTab === 'history' && renderHistory()}
