@@ -1,0 +1,5 @@
+{
+  "name": "Calculadora de Salário Quinzenal",
+  "description": "Sistema para cálculo de salário com adiantamento fixo, horas extras (60% e 110%) e descontos de INSS/FGTS.",
+  "requestFramePermissions": []
+}

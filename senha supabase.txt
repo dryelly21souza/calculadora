@@ -1,0 +1,4 @@
+Adm2025#estudantegraduada
+
+node --version
+npx --version
