@@ -87,6 +87,9 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ salaryHistory }) => {
   const leftMes = incomeMes - spentMes;
   const totalLeft = totalBaseIncome - (spentQuinzena + spentMes);
 
+  const totalPaidThisMonth = monthExpenses.filter(e => e.status === 'paid').reduce((acc, curr) => acc + curr.amount, 0);
+  const currentBankBalance = totalBaseIncome - totalPaidThisMonth;
+
   // Modals state
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [editingFixedBillId, setEditingFixedBillId] = useState<string | null>(null);
@@ -262,10 +265,21 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ salaryHistory }) => {
           <div className="relative z-10">
             <p className="text-slate-400 uppercase tracking-widest text-[10px] font-bold mb-1">Base Total (Sem Creche)</p>
             <h3 className="text-2xl font-black mb-4">R$ {totalBaseIncome.toLocaleString('pt-BR', {minimumFractionDigits:2})}</h3>
-            <p className="text-slate-400 uppercase tracking-widest text-[10px] font-bold mb-1">Sobra Livre Total</p>
-            <h3 className={`text-3xl font-black ${totalLeft < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-              R$ {totalLeft.toLocaleString('pt-BR', {minimumFractionDigits:2})}
-            </h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-slate-400 uppercase tracking-widest text-[9px] font-bold mb-1">Sobra Livre (Estimada)</p>
+                <h3 className={`text-xl font-black ${totalLeft < 0 ? 'text-red-400' : 'text-indigo-400'}`}>
+                  R$ {totalLeft.toLocaleString('pt-BR', {minimumFractionDigits:2})}
+                </h3>
+              </div>
+              <div className="border-l border-slate-700 pl-4">
+                <p className="text-slate-400 uppercase tracking-widest text-[9px] font-bold mb-1">Saldo Atual em Conta</p>
+                <h3 className={`text-xl font-black ${currentBankBalance < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                  R$ {currentBankBalance.toLocaleString('pt-BR', {minimumFractionDigits:2})}
+                </h3>
+              </div>
+            </div>
           </div>
           <Zap className="absolute bottom-4 right-4 w-24 h-24 text-white/5" />
         </div>
