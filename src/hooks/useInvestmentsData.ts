@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../lib/supabase';
 
 export interface Investment {
   id: string;
@@ -8,53 +9,81 @@ export interface Investment {
   description?: string;
 }
 
-const INVESTMENTS_KEY = 'investments_data';
-const GOAL_KEY = 'investment_monthly_goal';
-
-function uuid() {
-  return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
 export function useInvestmentsData() {
-  const [investments, setInvestments] = useState<Investment[]>(() => {
+  const [investments, setInvestments] = useState<Investment[]>([]);
+  const [monthlyGoal, setMonthlyGoal] = useState<number>(0);
+
+  const syncLocalStorageToSupabase = async () => {
     try {
-      const raw = localStorage.getItem(INVESTMENTS_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
+      const invStr = localStorage.getItem('investments_data');
+      if (invStr) {
+        const local = JSON.parse(invStr) as Investment[];
+        if (local.length > 0) {
+          const { data, error } = await supabase.from('investments').select('id').limit(1);
+          if (!error && data && data.length === 0) {
+            await supabase.from('investments').insert(local.map(item => ({...item, id: undefined})));
+          }
+        }
+        localStorage.removeItem('investments_data');
+      }
+
+      const goalStr = localStorage.getItem('investment_monthly_goal');
+      if (goalStr) {
+        const val = Number(goalStr);
+        if (val > 0) {
+          const { data, error } = await supabase.from('investment_goals').select('id').limit(1);
+          if (!error && data && data.length === 0) {
+            await supabase.from('investment_goals').insert({ goal_amount: val });
+          }
+        }
+        localStorage.removeItem('investment_monthly_goal');
+      }
+    } catch (e) {
+      console.error('Migration error investments', e);
     }
-  });
-
-  const [monthlyGoal, setMonthlyGoal] = useState<number>(() => {
-    try {
-      const raw = localStorage.getItem(GOAL_KEY);
-      return raw ? Number(raw) : 0;
-    } catch {
-      return 0;
-    }
-  });
-
-  useEffect(() => {
-    localStorage.setItem(INVESTMENTS_KEY, JSON.stringify(investments));
-  }, [investments]);
-
-  useEffect(() => {
-    localStorage.setItem(GOAL_KEY, monthlyGoal.toString());
-  }, [monthlyGoal]);
-
-  const addInvestment = (inv: Omit<Investment, 'id'>) => {
-    const newInv = { ...inv, id: uuid() };
-    setInvestments(prev => [...prev, newInv]);
   };
 
-  const deleteInvestment = (id: string) => {
+  const loadData = useCallback(async () => {
+    try {
+      await syncLocalStorageToSupabase();
+
+      const { data: invData } = await supabase.from('investments').select('*').order('date_str', { ascending: false });
+      if (invData) setInvestments(invData as Investment[]);
+
+      const { data: goalData } = await supabase.from('investment_goals').select('*').order('created_at', { ascending: false }).limit(1);
+      if (goalData && goalData.length > 0) {
+        setMonthlyGoal(goalData[0].goal_amount);
+      }
+    } catch (err) {
+      console.error('Error loading investments:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const addInvestment = async (inv: Omit<Investment, 'id'>) => {
+    const { data } = await supabase.from('investments').insert([inv]).select();
+    if (data && data[0]) {
+      setInvestments(prev => [...prev, data[0]]);
+    }
+  };
+
+  const deleteInvestment = async (id: string) => {
+    await supabase.from('investments').delete().eq('id', id);
     setInvestments(prev => prev.filter(i => i.id !== id));
+  };
+
+  const updateMonthlyGoal = async (amount: number) => {
+    await supabase.from('investment_goals').insert([{ goal_amount: amount }]);
+    setMonthlyGoal(amount);
   };
 
   return {
     investments,
     monthlyGoal,
-    setMonthlyGoal,
+    setMonthlyGoal: updateMonthlyGoal,
     addInvestment,
     deleteInvestment
   };

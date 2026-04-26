@@ -1,47 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../lib/supabase';
 
 type ExtraType = '60' | '110' | null;
-
-// ── localStorage helpers ──────────────────────────────────────────────────────
-
-const MARKS_KEY = 'calendar_marks';
-const PHOTOS_KEY = 'calendar_photos'; // Record<dateStr, string[]>  (base64 data URLs)
-
-function loadMarksFromStorage(): Record<string, ExtraType> {
-  try {
-    const raw = localStorage.getItem(MARKS_KEY);
-    return raw ? (JSON.parse(raw) as Record<string, ExtraType>) : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveMarksToStorage(marks: Record<string, ExtraType>): void {
-  try {
-    localStorage.setItem(MARKS_KEY, JSON.stringify(marks));
-  } catch (e) {
-    console.error('localStorage write error (marks):', e);
-  }
-}
-
-function loadPhotosFromStorage(): Record<string, string[]> {
-  try {
-    const raw = localStorage.getItem(PHOTOS_KEY);
-    return raw ? (JSON.parse(raw) as Record<string, string[]>) : {};
-  } catch {
-    return {};
-  }
-}
-
-function savePhotosToStorage(photos: Record<string, string[]>): void {
-  try {
-    localStorage.setItem(PHOTOS_KEY, JSON.stringify(photos));
-  } catch (e) {
-    console.error('localStorage write error (photos):', e);
-  }
-}
-
-// ── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useCalendarMarks() {
   const [calendarMarks, setCalendarMarks] = useState<Record<string, ExtraType>>({});
@@ -49,62 +9,111 @@ export function useCalendarMarks() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadMarks = useCallback(() => {
+  const syncLocalStorageToSupabase = async () => {
+    try {
+      const rawMarks = localStorage.getItem('calendar_marks');
+      if (rawMarks) {
+        const localMarks = JSON.parse(rawMarks) as Record<string, ExtraType>;
+        const keys = Object.keys(localMarks);
+        if (keys.length > 0) {
+          const { data, error } = await supabase.from('calendar_marks').select('date_str').limit(1);
+          if (!error && data && data.length === 0) {
+            const items = keys.map(k => ({ date_str: k, mark_type: localMarks[k] }));
+            await supabase.from('calendar_marks').insert(items);
+          }
+          localStorage.removeItem('calendar_marks');
+        }
+      }
+
+      const rawPhotos = localStorage.getItem('calendar_photos');
+      if (rawPhotos) {
+        const localPhotos = JSON.parse(rawPhotos) as Record<string, string[]>;
+        const keys = Object.keys(localPhotos);
+        if (keys.length > 0) {
+          const { data, error } = await supabase.from('calendar_photos').select('date_str').limit(1);
+          if (!error && data && data.length === 0) {
+            const items = keys.map(k => ({ date_str: k, photos: localPhotos[k] }));
+            await supabase.from('calendar_photos').insert(items);
+          }
+          localStorage.removeItem('calendar_photos');
+        }
+      }
+    } catch (e) {
+      console.error('Migration error', e);
+    }
+  };
+
+  const loadData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      setCalendarMarks(loadMarksFromStorage());
-      setCalendarPhotos(loadPhotosFromStorage());
+      await syncLocalStorageToSupabase();
+      
+      const { data: marksData } = await supabase.from('calendar_marks').select('*');
+      const marksMap: Record<string, ExtraType> = {};
+      marksData?.forEach(m => { marksMap[m.date_str] = m.mark_type; });
+      setCalendarMarks(marksMap);
+
+      const { data: photosData } = await supabase.from('calendar_photos').select('*');
+      const photosMap: Record<string, string[]> = {};
+      photosData?.forEach(p => { photosMap[p.date_str] = p.photos; });
+      setCalendarPhotos(photosMap);
+
     } catch (err: any) {
-      console.error('Error loading calendar data:', err.message);
       setError(err.message);
+      console.error('Error loading calendar data:', err);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  const toggleMark = (dateStr: string) => {
+  const toggleMark = async (dateStr: string) => {
     setCalendarMarks(prev => {
       const current = prev[dateStr];
-      const nextType: ExtraType =
-        current === '60' ? '110' : current === '110' ? null : '60';
-
+      const nextType: ExtraType = current === '60' ? '110' : current === '110' ? null : '60';
       const newMap = { ...prev };
+      
       if (nextType === null) {
         delete newMap[dateStr];
+        supabase.from('calendar_marks').delete().eq('date_str', dateStr).then();
       } else {
         newMap[dateStr] = nextType;
+        supabase.from('calendar_marks').upsert({ date_str: dateStr, mark_type: nextType }).then();
       }
-
-      saveMarksToStorage(newMap);
       return newMap;
     });
   };
 
-  /** Add a photo (base64 data URL) to a given date */
-  const addPhoto = (dateStr: string, dataUrl: string) => {
+  const addPhoto = async (dateStr: string, dataUrl: string) => {
     setCalendarPhotos(prev => {
       const existing = prev[dateStr] ?? [];
-      const updated = { ...prev, [dateStr]: [...existing, dataUrl] };
-      savePhotosToStorage(updated);
-      return updated;
+      const updatedArr = [...existing, dataUrl];
+      const newMap = { ...prev, [dateStr]: updatedArr };
+      supabase.from('calendar_photos').upsert({ date_str: dateStr, photos: updatedArr }).then();
+      return newMap;
     });
   };
 
-  /** Remove a photo by index from a given date */
-  const removePhoto = (dateStr: string, index: number) => {
+  const removePhoto = async (dateStr: string, index: number) => {
     setCalendarPhotos(prev => {
       const existing = prev[dateStr] ?? [];
-      const updated = { ...prev, [dateStr]: existing.filter((_, i) => i !== index) };
-      if (updated[dateStr].length === 0) delete updated[dateStr];
-      savePhotosToStorage(updated);
-      return updated;
+      const updatedArr = existing.filter((_, i) => i !== index);
+      const newMap = { ...prev };
+      
+      if (updatedArr.length === 0) {
+        delete newMap[dateStr];
+        supabase.from('calendar_photos').delete().eq('date_str', dateStr).then();
+      } else {
+        newMap[dateStr] = updatedArr;
+        supabase.from('calendar_photos').upsert({ date_str: dateStr, photos: updatedArr }).then();
+      }
+      return newMap;
     });
   };
 
   useEffect(() => {
-    loadMarks();
-  }, [loadMarks]);
+    loadData();
+  }, [loadData]);
 
   return {
     calendarMarks,

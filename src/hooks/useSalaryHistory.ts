@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../lib/supabase';
 
 export interface SalaryCalculation {
   id?: string;
@@ -19,53 +20,50 @@ export interface SalaryCalculation {
   notes?: string;
 }
 
-// ── localStorage helpers ──────────────────────────────────────────────────────
-
-const STORAGE_KEY = 'salary_history';
-
-function loadHistory(): SalaryCalculation[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as SalaryCalculation[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveHistory(history: SalaryCalculation[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-  } catch (e) {
-    console.error('localStorage write error:', e);
-  }
-}
-
-function uuid(): string {
-  return crypto.randomUUID
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-// ── Hook ─────────────────────────────────────────────────────────────────────
-
 export function useSalaryHistory() {
   const [history, setHistory] = useState<SalaryCalculation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadFromStorage = useCallback(() => {
+  const syncLocalStorageToSupabase = async () => {
+    try {
+      const raw = localStorage.getItem('salary_history');
+      if (raw) {
+        const localData = JSON.parse(raw) as SalaryCalculation[];
+        if (localData.length > 0) {
+          const { data, error } = await supabase.from('salary_calculations').select('id').limit(1);
+          if (!error && data && data.length === 0) {
+            // Push to supabase
+            const itemsToInsert = localData.map(item => {
+              const { id, ...rest } = item;
+              return rest;
+            });
+            await supabase.from('salary_calculations').insert(itemsToInsert);
+          }
+          localStorage.removeItem('salary_history');
+        }
+      }
+    } catch (e) {
+      console.error('Migration error', e);
+    }
+  };
+
+  const loadHistory = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = loadHistory();
-      // Most recent first
-      setHistory(data.slice().sort((a, b) => {
-        const ta = new Date(a.created_at ?? 0).getTime();
-        const tb = new Date(b.created_at ?? 0).getTime();
-        return tb - ta;
-      }));
+      await syncLocalStorageToSupabase();
+      
+      const { data, error } = await supabase
+        .from('salary_calculations')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setHistory(data || []);
     } catch (err: any) {
       setError(err.message);
+      console.error('Error loading history:', err);
     } finally {
       setIsLoading(false);
     }
@@ -75,16 +73,18 @@ export function useSalaryHistory() {
     setIsLoading(true);
     setError(null);
     try {
-      const all = loadHistory();
-      const newEntry: SalaryCalculation = {
-        ...calculation,
-        id: uuid(),
-        created_at: new Date().toISOString(),
-      };
-      const updated = [newEntry, ...all];
-      saveHistory(updated);
-      setHistory(updated);
-      return { success: true, data: [newEntry] };
+      const { data, error } = await supabase
+        .from('salary_calculations')
+        .insert([calculation])
+        .select();
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setHistory(prev => [data[0], ...prev]);
+        return { success: true, data };
+      }
+      return { success: false, error: 'No data returned' };
     } catch (err: any) {
       setError(err.message);
       return { success: false, error: err.message };
@@ -97,8 +97,13 @@ export function useSalaryHistory() {
     setIsLoading(true);
     setError(null);
     try {
-      const updated = loadHistory().filter(item => item.id !== id);
-      saveHistory(updated);
+      const { error } = await supabase
+        .from('salary_calculations')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
       setHistory(prev => prev.filter(item => item.id !== id));
       return { success: true };
     } catch (err: any) {
@@ -110,15 +115,15 @@ export function useSalaryHistory() {
   };
 
   useEffect(() => {
-    loadFromStorage();
-  }, [loadFromStorage]);
+    loadHistory();
+  }, [loadHistory]);
 
   return {
     history,
     isLoading,
     error,
     saveCalculation,
-    loadHistory: loadFromStorage,
+    loadHistory,
     deleteCalculation,
   };
 }
