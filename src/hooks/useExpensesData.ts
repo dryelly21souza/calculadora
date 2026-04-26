@@ -145,6 +145,12 @@ export const useExpensesData = () => {
     setExpensesState(p => p.map(e => e.id === id ? { ...e, ...updates } : e));
   };
 
+  const markAllAsPaid = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    await supabase.from('expenses').update({ status: 'paid' }).in('id', ids);
+    setExpensesState(p => p.map(e => ids.includes(e.id) ? { ...e, status: 'paid' } : e));
+  };
+
   const deleteExpense = async (id: string) => {
     await supabase.from('expenses').delete().eq('id', id);
     setExpensesState(p => p.filter(e => e.id !== id));
@@ -206,7 +212,7 @@ export const useExpensesData = () => {
 
   return {
     fixedBills, expenses, savedBalanceMap, initializedMonths, isLoading,
-    addExpense, addManyExpenses, updateExpense, deleteExpense,
+    addExpense, addManyExpenses, updateExpense, deleteExpense, markAllAsPaid,
     addFixedBill, updateFixedBill, deleteFixedBill,
     updateSavedBalance, markMonthInitialized, setExpenses,
   };

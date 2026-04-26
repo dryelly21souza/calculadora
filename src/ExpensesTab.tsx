@@ -40,7 +40,7 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ salaryHistory }) => {
 
   const {
     fixedBills, expenses, initializedMonths, isLoading,
-    addExpense, addManyExpenses, updateExpense, deleteExpense,
+    addExpense, addManyExpenses, updateExpense, deleteExpense, markAllAsPaid,
     addFixedBill, updateFixedBill, deleteFixedBill,
     markMonthInitialized
   } = useExpensesData();
@@ -176,9 +176,19 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ salaryHistory }) => {
             Sobra: <strong className={left >= 0 ? 'text-indigo-600' : 'text-red-500'}>R$ {left.toLocaleString('pt-BR', {minimumFractionDigits:2})}</strong>
           </p>
         </div>
-        <span className="bg-white border border-slate-200 text-slate-600 px-3 py-1 rounded-full text-xs font-bold shadow-sm">
-          {list.length} Gastos
-        </span>
+        <div className="flex items-center gap-2">
+          {list.some(e => e.status === 'pending') && (
+            <button 
+              onClick={() => markAllAsPaid(list.filter(e => e.status === 'pending').map(e => e.id))}
+              className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 px-3 py-1 rounded-full text-xs font-bold shadow-sm flex items-center gap-1 transition-colors"
+            >
+              <CheckCircle2 className="w-3 h-3" /> Pagar Tudo
+            </button>
+          )}
+          <span className="bg-white border border-slate-200 text-slate-600 px-3 py-1 rounded-full text-xs font-bold shadow-sm">
+            {list.length} Gastos
+          </span>
+        </div>
       </div>
       
       <div className="p-4 flex-1 space-y-3">
