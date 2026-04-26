@@ -90,6 +90,8 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ salaryHistory }) => {
   const totalPaidThisMonth = monthExpenses.filter(e => e.status === 'paid').reduce((acc, curr) => acc + curr.amount, 0);
   const currentBankBalance = totalBaseIncome - totalPaidThisMonth;
 
+  const totalFixedBills = fixedBills.reduce((acc, curr) => acc + curr.amount, 0);
+
   // Modals state
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [editingFixedBillId, setEditingFixedBillId] = useState<string | null>(null);
@@ -333,6 +335,10 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ salaryHistory }) => {
           <div>
             <h3 className="font-black text-white text-xl flex items-center gap-2"><Zap className="text-orange-400"/> Contas Fixas</h3>
             <p className="text-xs text-slate-400 font-medium mt-1">Geradas automaticamente todo mês e deduzidas da base.</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] uppercase font-bold text-slate-500 tracking-widest">Total Fixo Mensal</p>
+            <p className="text-xl font-black text-orange-400">R$ {totalFixedBills.toLocaleString('pt-BR', {minimumFractionDigits:2})}</p>
           </div>
         </div>
         <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
