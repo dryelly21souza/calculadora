@@ -295,7 +295,11 @@ export default function App() {
                   <input 
                     type="text" 
                     value={formatInputDisplay(baseSalary)}
-                    onChange={(e) => setBaseSalary(parseCurrencyInput(e.target.value))}
+                    onChange={(e) => {
+                      const newSalary = parseCurrencyInput(e.target.value);
+                      setBaseSalary(newSalary);
+                      setAdvancePayment(newSalary * 0.40);
+                    }}
                     className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none font-medium"
                   />
                 </div>
