@@ -40,7 +40,7 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ salaryHistory }) => {
 
   const {
     fixedBills, expenses, initializedMonths, isLoading,
-    addExpense, addManyExpenses, updateExpense, deleteExpense, markAllAsPaid,
+    addExpense, addManyExpenses, updateExpense, deleteExpense, markAllAsPaid, markAllAsPending,
     addFixedBill, updateFixedBill, deleteFixedBill,
     markMonthInitialized
   } = useExpensesData();
@@ -177,13 +177,22 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ salaryHistory }) => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {list.some(e => e.status === 'pending') && (
-            <button 
-              onClick={() => markAllAsPaid(list.filter(e => e.status === 'pending').map(e => e.id))}
-              className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 px-3 py-1 rounded-full text-xs font-bold shadow-sm flex items-center gap-1 transition-colors"
-            >
-              <CheckCircle2 className="w-3 h-3" /> Pagar Tudo
-            </button>
+          {list.length > 0 && (
+            list.some(e => e.status === 'pending') ? (
+              <button 
+                onClick={() => markAllAsPaid(list.filter(e => e.status === 'pending').map(e => e.id))}
+                className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 px-3 py-1 rounded-full text-xs font-bold shadow-sm flex items-center gap-1 transition-colors"
+              >
+                <CheckCircle2 className="w-3 h-3" /> Pagar Tudo
+              </button>
+            ) : (
+              <button 
+                onClick={() => markAllAsPending(list.map(e => e.id))}
+                className="bg-slate-50 text-slate-500 hover:bg-slate-100 border border-slate-200 px-3 py-1 rounded-full text-xs font-bold shadow-sm flex items-center gap-1 transition-colors"
+              >
+                <X className="w-3 h-3" /> Desfazer Pagamentos
+              </button>
+            )
           )}
           <span className="bg-white border border-slate-200 text-slate-600 px-3 py-1 rounded-full text-xs font-bold shadow-sm">
             {list.length} Gastos
