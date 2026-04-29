@@ -256,14 +256,15 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ salaryHistory }) => {
                     />
                   ) : (
                     <div 
-                      className={`font-black flex items-center gap-2 cursor-pointer ${isLate ? 'text-red-600' : 'text-slate-800'} hover:text-indigo-600`}
+                      className={`font-black flex items-center gap-2 cursor-pointer ${isLate ? 'text-red-600' : 'text-slate-800'} hover:text-indigo-600 px-2 py-1 rounded-md hover:bg-slate-100 transition-colors`}
                       onClick={() => {
                         setEditingExpenseId(e.id);
                         setEditExpenseAmount(e.amount.toFixed(2));
                       }}
+                      title="Editar valor"
                     >
                       R$ {e.amount.toLocaleString('pt-BR', {minimumFractionDigits:2})}
-                      <Edit3 className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400" />
+                      <Edit3 className="w-4 h-4 text-slate-400 opacity-70 hover:opacity-100 transition-opacity" />
                     </div>
                   )}
                 </div>
