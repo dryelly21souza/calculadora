@@ -242,34 +242,28 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ salaryHistory }) => {
                     className={`font-bold text-sm ${isPaid ? 'text-slate-500 line-through' : isLate ? 'text-red-800' : 'text-slate-800'}`}
                   />
                   {editingExpenseId === e.id ? (
-                    <div className="flex gap-1 ml-2">
-                      <input 
-                        autoFocus
-                        value={editExpenseAmount}
-                        onChange={ev => setEditExpenseAmount(ev.target.value)}
-                        placeholder="Valor..."
-                        className="w-20 bg-slate-50 border border-slate-300 rounded-md px-2 py-1 text-slate-800 text-xs font-bold outline-none focus:border-indigo-500"
-                        onKeyDown={(ev) => {
-                          if (ev.key === 'Enter') handleSaveEditExpense(e.id);
-                          if (ev.key === 'Escape') setEditingExpenseId(null);
-                        }}
-                      />
-                      <button onClick={() => handleSaveEditExpense(e.id)} className="bg-emerald-500 text-white px-2 py-1 rounded-md flex items-center justify-center hover:bg-emerald-600"><Save className="w-3 h-3"/></button>
-                      <button onClick={() => setEditingExpenseId(null)} className="bg-slate-300 text-slate-700 px-2 py-1 rounded-md flex items-center justify-center hover:bg-slate-400"><X className="w-3 h-3"/></button>
-                    </div>
+                    <input 
+                      autoFocus
+                      value={editExpenseAmount}
+                      onChange={ev => setEditExpenseAmount(ev.target.value)}
+                      onBlur={() => handleSaveEditExpense(e.id)}
+                      placeholder="0.00"
+                      className="w-24 bg-white border-2 border-indigo-300 text-indigo-900 rounded-lg px-2 py-0.5 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-right transition-all ml-2"
+                      onKeyDown={(ev) => {
+                        if (ev.key === 'Enter') handleSaveEditExpense(e.id);
+                        if (ev.key === 'Escape') setEditingExpenseId(null);
+                      }}
+                    />
                   ) : (
-                    <div className="flex flex-col items-end gap-1">
-                      <div className={`font-black ${isLate ? 'text-red-600' : 'text-slate-800'}`}>
-                        R$ {e.amount.toLocaleString('pt-BR', {minimumFractionDigits:2})}
-                      </div>
-                      {!isFixed && (
-                        <button 
-                          onClick={() => { setEditingExpenseId(e.id); setEditExpenseAmount(e.amount.toFixed(2)); }}
-                          className="text-[10px] flex items-center gap-1 font-bold text-indigo-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Edit3 className="w-3 h-3"/> Editar
-                        </button>
-                      )}
+                    <div 
+                      className={`font-black flex items-center gap-2 cursor-pointer ${isLate ? 'text-red-600' : 'text-slate-800'} hover:text-indigo-600`}
+                      onClick={() => {
+                        setEditingExpenseId(e.id);
+                        setEditExpenseAmount(e.amount.toFixed(2));
+                      }}
+                    >
+                      R$ {e.amount.toLocaleString('pt-BR', {minimumFractionDigits:2})}
+                      <Edit3 className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400" />
                     </div>
                   )}
                 </div>
