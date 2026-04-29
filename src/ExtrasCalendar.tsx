@@ -28,6 +28,7 @@ const DayPhotoModal: React.FC<DayPhotoModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [deleteConfirmIdx, setDeleteConfirmIdx] = useState<number | null>(null);
 
   const typeLabel = status === '60' ? 'Extra 60%' : status === '110' ? 'Extra 110%' : 'Sem marcação';
   const typeColor = status === '60' ? 'indigo' : status === '110' ? 'orange' : 'slate';
@@ -134,7 +135,7 @@ const DayPhotoModal: React.FC<DayPhotoModalProps> = ({
                         <ZoomIn className="w-4 h-4 text-slate-700" />
                       </button>
                       <button
-                        onClick={() => onRemovePhoto(idx)}
+                        onClick={() => setDeleteConfirmIdx(idx)}
                         className="p-1.5 bg-white/90 rounded-lg hover:bg-rose-50 transition-colors shadow"
                         title="Remover foto"
                       >
@@ -190,6 +191,39 @@ const DayPhotoModal: React.FC<DayPhotoModalProps> = ({
             className="max-w-full max-h-full rounded-2xl object-contain shadow-2xl"
             onClick={e => e.stopPropagation()}
           />
+        </div>
+      )}
+
+      {/* Exclusão Confirm Dialog */}
+      {deleteConfirmIdx !== null && (
+        <div 
+          className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setDeleteConfirmIdx(null)}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-in fade-in zoom-in-95 duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold text-slate-800 mb-2">Excluir comprovante?</h3>
+            <p className="text-slate-500 text-sm mb-6">Tem certeza que deseja excluir esta foto? Esta ação não pode ser desfeita.</p>
+            <div className="flex gap-3 justify-end">
+              <button 
+                onClick={() => setDeleteConfirmIdx(null)}
+                className="px-4 py-2 rounded-xl text-slate-600 font-semibold hover:bg-slate-100 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={() => {
+                  onRemovePhoto(deleteConfirmIdx);
+                  setDeleteConfirmIdx(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-rose-500 text-white font-semibold hover:bg-rose-600 transition-colors shadow-sm shadow-rose-200"
+              >
+                Sim, excluir
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </>
