@@ -108,12 +108,14 @@ export default function App() {
   const calculations = useMemo(() => {
     const hourlyRate = baseSalary / STANDARD_MONTHLY_HOURS;
     
+    const hora60 = hourlyRate * 1.6;
+    const hora110 = hourlyRate * 2.1;
+
     const ot60HoursTotal = ot60Days * 1.5;
-    const ot60Rate = 20.03;
-    const ot60Value = ot60Rate * ot60HoursTotal;
-    
-    const ot110HoursTotal = ot110Days * 8;
-    const ot110Value = ot110Days * 194.50;
+    const ot110HoursTotal = ot110Days * 7.33;
+
+    const ot60Value = hora60 * ot60HoursTotal;
+    const ot110Value = hora110 * ot110HoursTotal;
 
     const totalExtras = ot60Value + ot110Value;
     
@@ -132,6 +134,8 @@ export default function App() {
 
     return {
       hourlyRate,
+      hora60,
+      hora110,
       ot60Value,
       ot110Value,
       totalExtras,
@@ -319,54 +323,80 @@ export default function App() {
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-slate-400" />
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <h2 className="text-lg font-bold flex items-center gap-2 text-slate-800">
+                  <Clock className="w-5 h-5 text-indigo-500" />
                   Horas Extras
                 </h2>
+                <div className="text-right">
+                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Sua Hora Base</p>
+                  <p className="font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md mt-1 inline-block">{formatCurrency(calculations.hourlyRate)}/h</p>
+                </div>
               </div>
 
               <div className="space-y-4">
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-600 flex items-center justify-between">
-                      <span>Dias c/ Extra 60% (1:30h)</span>
-                      <span className="text-[10px] text-slate-400 font-normal italic">Total: {calculations.ot60HoursTotal.toFixed(1)}h</span>
-                    </label>
-                    <div className="flex gap-2">
+                {/* 60% */}
+                <div className="group p-4 rounded-2xl bg-slate-50 border border-slate-200 hover:border-indigo-200 transition-all">
+                  <div className="flex justify-between items-center mb-3">
+                    <div>
+                      <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                        Plantões 60%
+                        <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-md">{formatCurrency(calculations.hora60)}/h</span>
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1">1 dia = 1.5 horas</p>
+                    </div>
+                    <div className="flex items-center gap-2">
                       <input 
                         type="number" 
+                        min="0"
+                        step="1"
                         value={ot60Days}
                         onChange={(e) => setOt60Days(Number(e.target.value))}
-                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none"
+                        className="w-20 text-center px-3 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-black text-slate-700 text-lg shadow-sm"
                       />
-                      <div className="flex-shrink-0 px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 text-sm flex items-center">
-                        {formatCurrency(20.03 * 1.5)}/dia
-                      </div>
                     </div>
+                  </div>
+                  <div className="flex justify-between items-center pt-3 border-t border-slate-200/80">
+                    <span className="text-xs font-medium text-slate-500">Cálculo: {calculations.ot60HoursTotal.toFixed(2)}h</span>
+                    <span className="font-bold text-emerald-600 text-lg">{formatCurrency(calculations.ot60Value)}</span>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-600 flex items-center justify-between">
-                      <span>Domingos 110% (06h às 14h)</span>
-                      <span className="text-[10px] text-slate-400 font-normal italic">Total: {calculations.ot110HoursTotal}h</span>
-                    </label>
-                    <div className="flex gap-2">
+                {/* 110% */}
+                <div className="group p-4 rounded-2xl bg-slate-50 border border-slate-200 hover:border-indigo-200 transition-all">
+                  <div className="flex justify-between items-center mb-3">
+                    <div>
+                      <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                        Plantões 110%
+                        <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-md">{formatCurrency(calculations.hora110)}/h</span>
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1">1 dia = 7.33 horas</p>
+                    </div>
+                    <div className="flex items-center gap-2">
                       <input 
                         type="number" 
+                        min="0"
+                        step="1"
                         value={ot110Days}
                         onChange={(e) => setOt110Days(Number(e.target.value))}
-                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none"
+                        className="w-20 text-center px-3 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-black text-slate-700 text-lg shadow-sm"
                       />
-                      <div className="flex-shrink-0 px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 text-sm flex items-center">
-                        {formatCurrency(194.50)}/dom
-                      </div>
                     </div>
                   </div>
+                  <div className="flex justify-between items-center pt-3 border-t border-slate-200/80">
+                    <span className="text-xs font-medium text-slate-500">Cálculo: {calculations.ot110HoursTotal.toFixed(2)}h</span>
+                    <span className="font-bold text-emerald-600 text-lg">{formatCurrency(calculations.ot110Value)}</span>
+                  </div>
                 </div>
+              </div>
+
+              <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-2xl p-5 flex justify-between items-center text-white shadow-lg shadow-indigo-200">
+                <div>
+                  <span className="block text-indigo-50 text-sm font-bold uppercase tracking-wider">Total de Extras</span>
+                  <span className="block text-[10px] text-indigo-200 mt-1">Sem incidência de DSR</span>
+                </div>
+                <span className="text-3xl font-black tracking-tight">{formatCurrency(calculations.totalExtras)}</span>
               </div>
             </div>
 
@@ -478,7 +508,7 @@ export default function App() {
                   <span>+{formatCurrency(calculations.ot60Value)}</span>
                 </div>
                 <div className="flex justify-between items-center py-1 text-sm text-emerald-700">
-                  <span>Extras 110% ({calculations.ot110HoursTotal}h)</span>
+                  <span>Extras 110% ({calculations.ot110HoursTotal.toFixed(2)}h)</span>
                   <span>+{formatCurrency(calculations.ot110Value)}</span>
                 </div>
               </div>
