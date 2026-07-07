@@ -33,58 +33,7 @@ export const useExpensesData = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const syncLocalStorageToSupabase = async () => {
-    try {
-      const fbStr = localStorage.getItem('expenses_fixed_bills');
-      if (fbStr) {
-        const local = JSON.parse(fbStr) as FixedBill[];
-        if (local.length > 0) {
-          const { data, error } = await supabase.from('fixed_bills').select('id').limit(1);
-          if (!error && data && data.length === 0) {
-            await supabase.from('fixed_bills').insert(local.map(item => ({...item, id: undefined})));
-          }
-        }
-        localStorage.removeItem('expenses_fixed_bills');
-      }
-
-      const expStr = localStorage.getItem('expenses_list');
-      if (expStr) {
-        const local = JSON.parse(expStr) as Expense[];
-        if (local.length > 0) {
-          const { data, error } = await supabase.from('expenses').select('id').limit(1);
-          if (!error && data && data.length === 0) {
-            await supabase.from('expenses').insert(local.map(item => ({...item, id: undefined, fixed_bill_id: null})));
-          }
-        }
-        localStorage.removeItem('expenses_list');
-      }
-
-      const sbStr = localStorage.getItem('expenses_saved_balances');
-      if (sbStr) {
-        const local = JSON.parse(sbStr) as Record<string, number>;
-        const keys = Object.keys(local);
-        if (keys.length > 0) {
-          const { data, error } = await supabase.from('saved_balances').select('month_str').limit(1);
-          if (!error && data && data.length === 0) {
-            await supabase.from('saved_balances').insert(keys.map(k => ({ month_str: k, amount: local[k] })));
-          }
-        }
-        localStorage.removeItem('expenses_saved_balances');
-      }
-
-      const initStr = localStorage.getItem('expenses_initialized_months');
-      if (initStr) {
-        const local = JSON.parse(initStr) as string[];
-        if (local.length > 0) {
-          const { data, error } = await supabase.from('initialized_months').select('month_str').limit(1);
-          if (!error && data && data.length === 0) {
-            await supabase.from('initialized_months').insert(local.map(k => ({ month_str: k })));
-          }
-        }
-        localStorage.removeItem('expenses_initialized_months');
-      }
-    } catch (e) {
-      console.error('Migration error expenses', e);
-    }
+    // Legacy migration disabled to keep database fresh and prevent re-uploading old local storage data
   };
 
   const loadData = useCallback(async () => {

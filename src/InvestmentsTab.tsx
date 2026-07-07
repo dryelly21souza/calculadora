@@ -1,350 +1,513 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  TrendingUp, Wallet, Target, PieChart, Zap, ChevronLeft, ChevronRight,
-  Plus, X, Trash2, Rocket, ArrowUpRight, Award, ShieldCheck, CheckCircle2
+import {
+  TrendingUp, Wallet, ChevronLeft, ChevronRight,
+  Plus, Trash2, Edit2, Check, X, TrendingDown
 } from 'lucide-react';
 import type { SalaryCalculation } from './hooks/useSalaryHistory';
 import { useInvestmentsData } from './hooks/useInvestmentsData';
+import { usePortfolios } from './hooks/usePortfolios';
 
 interface InvestmentsTabProps {
   salaryHistory: SalaryCalculation[];
+  investmentsData: ReturnType<typeof useInvestmentsData>;
+  referenceMonth: string;
+  setReferenceMonth: (v: string) => void;
 }
 
-const INVESTMENT_TYPES = [
-  { id: 'poupanca', name: 'Poupança', icon: '🏦' },
-  { id: 'cdb', name: 'CDB / Renda Fixa', icon: '📈' },
-  { id: 'tesouro', name: 'Tesouro Direto', icon: '🏛️' },
-  { id: 'acoes', name: 'Ações / FIIs', icon: '📊' },
-  { id: 'cripto', name: 'Criptomoedas', icon: '🪙' },
-  { id: 'outros', name: 'Outros', icon: '💰' }
-];
+const PORTFOLIO_COLORS: Record<string, { bg: string; text: string; dot: string; border: string; icon_bg: string }> = {
+  indigo: { bg: 'bg-indigo-50', text: 'text-indigo-600', dot: 'bg-indigo-500', border: 'border-indigo-200', icon_bg: 'bg-indigo-100' },
+  emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600', dot: 'bg-emerald-500', border: 'border-emerald-200', icon_bg: 'bg-emerald-100' },
+  amber: { bg: 'bg-amber-50', text: 'text-amber-600', dot: 'bg-amber-500', border: 'border-amber-200', icon_bg: 'bg-amber-100' },
+  rose: { bg: 'bg-rose-50', text: 'text-rose-600', dot: 'bg-rose-500', border: 'border-rose-200', icon_bg: 'bg-rose-100' },
+  blue: { bg: 'bg-blue-50', text: 'text-blue-600', dot: 'bg-blue-500', border: 'border-blue-200', icon_bg: 'bg-blue-100' },
+  purple: { bg: 'bg-purple-50', text: 'text-purple-600', dot: 'bg-purple-500', border: 'border-purple-200', icon_bg: 'bg-purple-100' },
+};
 
-export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({ salaryHistory }) => {
-  const [currentDate, setCurrentDate] = useState(() => {
-    const today = new Date();
-    return new Date(today.getFullYear(), today.getMonth(), 1);
-  });
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
+const COLOR_OPTIONS = ['indigo', 'emerald', 'amber', 'rose', 'blue', 'purple'];
+const ICON_OPTIONS = ['💰', '📈', '📊', '🏦', '🪙', '🏛️', '⚡', '💎', '🚀', '🌱'];
+
+const formatCurrency = (v: number) =>
+  `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({ 
+  salaryHistory, 
+  investmentsData,
+  referenceMonth,
+  setReferenceMonth,
+}) => {
+  const [yearStr, monthStr_raw] = referenceMonth.split('-');
+  const year = parseInt(yearStr || '2026');
+  const month = parseInt(monthStr_raw || '7') - 1; // 0-indexed month
   const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
-  const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-  const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
-  const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
-
-  const {
-    investments, monthlyGoal, setMonthlyGoal, addInvestment, deleteInvestment
-  } = useInvestmentsData();
-
-  const [isAdding, setIsAdding] = useState(false);
-  const [invAmount, setInvAmount] = useState('');
-  const [invDate, setInvDate] = useState(`${monthStr}-15`);
-  const [invType, setInvType] = useState('poupanca');
-  const [isEditingGoal, setIsEditingGoal] = useState(false);
-  const [goalInput, setGoalInput] = useState('');
-
-  // 1. Calculations
-  const totalInvestedAllTime = useMemo(() => {
-    return investments.reduce((acc, curr) => acc + curr.amount, 0);
-  }, [investments]);
-
-  const monthInvestments = useMemo(() => {
-    return investments.filter(i => i.date_str.startsWith(monthStr)).sort((a,b) => b.date_str.localeCompare(a.date_str));
-  }, [investments, monthStr]);
-
-  const totalInvestedThisMonth = useMemo(() => {
-    return monthInvestments.reduce((acc, curr) => acc + curr.amount, 0);
-  }, [monthInvestments]);
-
-  const [ruleView, setRuleView] = useState<'mes' | 'quinzena'>('mes');
-
-  // Salary Base Breakdown
-  const monthHistory = salaryHistory.find(h => h.reference_month === monthStr);
-  const DAYCARE_ALLOWANCE = 820.01;
-  const incomeQuinzena = monthHistory?.advance_payment || 0;
-  const incomeMes = monthHistory ? Math.max(0, monthHistory.second_payment - DAYCARE_ALLOWANCE) : 0;
-  
-  // Active Rule Values
-  const activeIncome = ruleView === 'mes' ? incomeMes : incomeQuinzena;
-  const rule50 = activeIncome * 0.50;
-  const rule30 = activeIncome * 0.30;
-  const rule20 = activeIncome * 0.20;
-
-  // Future Projection (Simulated 10 years at 10% aa for visual impact)
-  const futureValue10Years = totalInvestedAllTime * Math.pow(1.10, 10);
-
-  const handleSaveInvestment = () => {
-    if (!invAmount) return;
-    const value = Number(invAmount.replace(/\D/g, '')) / 100;
-    if (value <= 0) return;
-
-    addInvestment({
-      amount: value,
-      date_str: invDate,
-      type: invType,
-    });
-    
-    setInvAmount('');
-    setIsAdding(false);
+  const prevMonth = () => {
+    let prevM = month;
+    let prevY = year;
+    if (prevM === 0) {
+      prevM = 12;
+      prevY -= 1;
+    }
+    setReferenceMonth(`${prevY}-${String(prevM).padStart(2, '0')}`);
   };
 
-  const handleSaveGoal = () => {
-    const value = Number(goalInput.replace(/\D/g, '')) / 100;
-    setMonthlyGoal(value);
-    setIsEditingGoal(false);
+  const nextMonth = () => {
+    let nextM = month + 2;
+    let nextY = year;
+    if (nextM === 13) {
+      nextM = 1;
+      nextY += 1;
+    }
+    setReferenceMonth(`${nextY}-${String(nextM).padStart(2, '0')}`);
+  };
+
+  const { portfolios, dividends, addPortfolio, updatePortfolio, deletePortfolio, addDividend, deleteDividend } = usePortfolios();
+
+  // Add Portfolio Modal State
+  const [showAddPortfolio, setShowAddPortfolio] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newSubtitle, setNewSubtitle] = useState('');
+  const [newIcon, setNewIcon] = useState('💰');
+  const [newColor, setNewColor] = useState('indigo');
+  const [newBalance, setNewBalance] = useState('');
+  const [newRate, setNewRate] = useState('0.15');
+
+  // Edit Portfolio State
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editBalance, setEditBalance] = useState('');
+  const [editRate, setEditRate] = useState('');
+
+  // Add Dividend State
+  const [addDividendPortfolioId, setAddDividendPortfolioId] = useState<string | null>(null);
+  const [newDividendDate, setNewDividendDate] = useState('');
+  const [newDividendAmount, setNewDividendAmount] = useState('');
+  const [newDividendPaymentDate, setNewDividendPaymentDate] = useState('');
+
+  // Summary metrics
+  const totalPatrimonio = useMemo(() => {
+    return portfolios.reduce((acc, p) => acc + (p.current_balance || 0), 0);
+  }, [portfolios]);
+
+  const totalRendimentoMes = useMemo(() => {
+    return portfolios.reduce((acc, p) => {
+      const monthly = (p.current_balance * (p.monthly_rate / 100));
+      return acc + monthly;
+    }, 0);
+  }, [portfolios]);
+
+  const rendimentoPct = useMemo(() => {
+    if (totalPatrimonio === 0) return 0;
+    return (totalRendimentoMes / totalPatrimonio) * 100;
+  }, [totalPatrimonio, totalRendimentoMes]);
+
+  const monthDividends = useMemo(() => {
+    return dividends.filter(d => d.date.startsWith(monthStr));
+  }, [dividends, monthStr]);
+
+  const totalDividendsMes = useMemo(() => {
+    return monthDividends.reduce((acc, d) => acc + d.amount, 0);
+  }, [monthDividends]);
+
+  const nextDividends = useMemo(() => {
+    const today = new Date().toISOString().substring(0, 10);
+    return dividends
+      .filter(d => d.payment_date && d.payment_date >= today)
+      .sort((a, b) => (a.payment_date || '').localeCompare(b.payment_date || ''))
+      .slice(0, 2);
+  }, [dividends]);
+
+  const handleAddPortfolio = async () => {
+    if (!newName.trim()) return;
+    const bal = parseFloat(newBalance.replace(',', '.')) || 0;
+    const rate = parseFloat(newRate.replace(',', '.')) || 0;
+    await addPortfolio({
+      name: newName.trim(),
+      subtitle: newSubtitle.trim(),
+      icon: newIcon,
+      color: newColor,
+      current_balance: bal,
+      monthly_rate: rate,
+    });
+    setShowAddPortfolio(false);
+    setNewName(''); setNewSubtitle(''); setNewIcon('💰');
+    setNewColor('indigo'); setNewBalance(''); setNewRate('0.15');
+  };
+
+  const startEdit = (p: typeof portfolios[0]) => {
+    setEditingId(p.id);
+    setEditBalance(p.current_balance.toFixed(2).replace('.', ','));
+    setEditRate(p.monthly_rate.toString().replace('.', ','));
+  };
+
+  const saveEdit = async () => {
+    if (!editingId) return;
+    const bal = parseFloat(editBalance.replace(',', '.')) || 0;
+    const rate = parseFloat(editRate.replace(',', '.')) || 0;
+    await updatePortfolio(editingId, { current_balance: bal, monthly_rate: rate });
+    setEditingId(null);
+  };
+
+  const handleAddDividend = async () => {
+    if (!addDividendPortfolioId || !newDividendDate || !newDividendAmount) return;
+    const amt = parseFloat(newDividendAmount.replace(',', '.')) || 0;
+    await addDividend({
+      portfolio_id: addDividendPortfolioId,
+      date: newDividendDate,
+      amount: amt,
+      payment_date: newDividendPaymentDate || undefined,
+    });
+    setAddDividendPortfolioId(null);
+    setNewDividendDate(''); setNewDividendAmount(''); setNewDividendPaymentDate('');
+  };
+
+  const formatDate = (d?: string) => {
+    if (!d) return '—';
+    return d.split('-').reverse().join('/');
   };
 
   return (
-    <div className="space-y-6 pb-24 animate-in fade-in duration-300">
-      
-      {/* Month Navigation */}
-      <div className="flex justify-between items-center bg-white rounded-3xl p-4 shadow-sm border border-slate-200">
-        <h2 className="text-xl font-black text-slate-800 ml-4 hidden sm:block">Meus Investimentos</h2>
-        <div className="flex items-center gap-4 bg-slate-50 p-1.5 rounded-2xl border border-slate-100 mx-auto sm:mx-0">
-          <button onClick={prevMonth} className="p-2 hover:bg-white rounded-xl text-slate-600 shadow-sm"><ChevronLeft className="w-5 h-5" /></button>
-          <span className="w-32 text-center font-bold text-slate-700 uppercase tracking-widest text-sm">
-            {monthNames[month]} {year}
+    <div className="space-y-8 animate-in fade-in zoom-in-95 duration-300">
+      {/* Header */}
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h2 className="text-3xl font-black tracking-tight text-slate-900">Investimentos</h2>
+          <p className="text-slate-500 font-medium text-sm">Acompanhe seus investimentos e rendimentos.</p>
+        </div>
+        {/* Month Selector */}
+        <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl border border-slate-200 shadow-sm">
+          <button onClick={prevMonth} className="p-1 hover:bg-slate-100 rounded-lg transition-colors">
+            <ChevronLeft className="w-4 h-4 text-slate-500" />
+          </button>
+          <span className="font-bold text-slate-700 text-sm w-28 text-center">
+            {monthNames[month]}/{year}
           </span>
-          <button onClick={nextMonth} className="p-2 hover:bg-white rounded-xl text-slate-600 shadow-sm"><ChevronRight className="w-5 h-5" /></button>
+          <button onClick={nextMonth} className="p-1 hover:bg-slate-100 rounded-lg transition-colors">
+            <ChevronRight className="w-4 h-4 text-slate-500" />
+          </button>
+        </div>
+      </header>
+
+      {/* 4 Summary Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Patrimônio Total */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-2 hover:shadow-md transition-all">
+          <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center">
+            <Wallet className="w-5 h-5 text-indigo-500" />
+          </div>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Patrimônio total</p>
+          <p className="text-xl font-black text-slate-800">{formatCurrency(totalPatrimonio)}</p>
+          <p className="text-[10px] text-slate-400 font-medium">Valor atual</p>
+        </div>
+
+        {/* Rendimento no Mês */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-2 hover:shadow-md transition-all">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-50 flex items-center justify-center">
+            <TrendingUp className="w-5 h-5 text-emerald-500" />
+          </div>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Rendimento no mês</p>
+          <p className="text-xl font-black text-emerald-600">+{formatCurrency(totalRendimentoMes)}</p>
+          <p className="text-[10px] text-slate-400 font-medium">{rendimentoPct.toFixed(2)}% do patrimônio</p>
+        </div>
+
+        {/* Dividendos Recebidos */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-2 hover:shadow-md transition-all">
+          <div className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center">
+            <span className="text-lg">📅</span>
+          </div>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Dividendos recebidos</p>
+          <p className="text-xl font-black text-slate-800">{formatCurrency(totalDividendsMes)}</p>
+          <p className="text-[10px] text-slate-400 font-medium">Até o momento</p>
+        </div>
+
+        {/* Próximos Dividendos */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-2 hover:shadow-md transition-all">
+          <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center">
+            <span className="text-lg">📆</span>
+          </div>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Próximos dividendos</p>
+          {nextDividends.length > 0 ? (
+            <p className="text-lg font-black text-slate-800 leading-tight">
+              {nextDividends.map(d => formatDate(d.payment_date)).join(' e ')}
+            </p>
+          ) : (
+            <p className="text-sm font-bold text-slate-400">—</p>
+          )}
+          <p className="text-[10px] text-slate-400 font-medium">Datas dos pagamentos</p>
         </div>
       </div>
 
-      {/* BLOCO 1: CARD PRINCIPAL */}
-      <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-800 rounded-3xl p-8 text-white shadow-xl shadow-indigo-900/20 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 blur-3xl rounded-full translate-x-10 -translate-y-10"></div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
-          {/* Total Investido */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-indigo-200 uppercase tracking-widest text-xs font-bold mb-1">
-              <Wallet className="w-4 h-4"/> Total Investido
-            </div>
-            <h3 className="text-4xl md:text-5xl font-black">
-              R$ {totalInvestedAllTime.toLocaleString('pt-BR', {minimumFractionDigits:2})}
-            </h3>
-            <p className="text-sm text-indigo-200 flex items-center gap-1 font-medium">
-              <ShieldCheck className="w-4 h-4" /> Seu patrimônio seguro
-            </p>
-          </div>
-
-          {/* Investido no Mês */}
-          <div className="space-y-2 border-t md:border-t-0 md:border-l border-white/10 pt-4 md:pt-0 md:pl-8">
-            <div className="flex items-center gap-2 text-indigo-200 uppercase tracking-widest text-xs font-bold mb-1">
-              <TrendingUp className="w-4 h-4"/> Investido em {monthNames[month]}
-            </div>
-            <h3 className="text-3xl font-black text-emerald-300">
-              R$ {totalInvestedThisMonth.toLocaleString('pt-BR', {minimumFractionDigits:2})}
-            </h3>
-            {monthlyGoal > 0 && (
-              <div className="w-full bg-white/10 h-2 rounded-full mt-3 overflow-hidden">
-                <div 
-                  className="bg-emerald-400 h-full transition-all duration-1000"
-                  style={{ width: `${Math.min((totalInvestedThisMonth / monthlyGoal) * 100, 100)}%` }}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Meta Mensal */}
-          <div className="space-y-2 border-t md:border-t-0 md:border-l border-white/10 pt-4 md:pt-0 md:pl-8">
-            <div className="flex items-center justify-between text-indigo-200 uppercase tracking-widest text-xs font-bold mb-1">
-              <span className="flex items-center gap-2"><Target className="w-4 h-4"/> Meta Mensal</span>
-              <button onClick={() => { setIsEditingGoal(true); setGoalInput(monthlyGoal.toFixed(2)); }} className="hover:text-white transition-colors">Editar</button>
-            </div>
-            
-            {isEditingGoal ? (
-              <div className="flex gap-2">
-                <input 
-                  autoFocus
-                  value={goalInput}
-                  onChange={e => setGoalInput(e.target.value)}
-                  placeholder="0,00"
-                  inputMode="numeric"
-                  className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-1 text-white font-bold outline-none focus:border-white/50"
-                />
-                <button onClick={handleSaveGoal} className="bg-emerald-500 text-white px-3 rounded-xl hover:bg-emerald-400"><CheckCircle2 className="w-5 h-5"/></button>
-              </div>
-            ) : (
-              <h3 className="text-3xl font-black">
-                R$ {monthlyGoal.toLocaleString('pt-BR', {minimumFractionDigits:2})}
-              </h3>
-            )}
-            
-            {monthlyGoal > 0 && (
-              <p className="text-sm text-indigo-200 font-medium">
-                {totalInvestedThisMonth >= monthlyGoal 
-                  ? '🎉 Meta Atingida!' 
-                  : `Faltam R$ ${(monthlyGoal - totalInvestedThisMonth).toLocaleString('pt-BR', {minimumFractionDigits:2})}`
-                }
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* COLUNA ESQUERDA: Insights */}
-        <div className="space-y-6 lg:col-span-1">
-          {/* Regra 50-30-20 */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
-            <div className="flex justify-between items-start mb-4">
-              <h4 className="font-bold text-slate-800 flex items-center gap-2">
-                <PieChart className="w-5 h-5 text-indigo-500" /> Regra 50-30-20
-              </h4>
-            </div>
-
-            <div className="flex bg-slate-100 p-1 rounded-xl mb-4">
-              <button onClick={() => setRuleView('quinzena')} className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-colors ${ruleView === 'quinzena' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Quinzena</button>
-              <button onClick={() => setRuleView('mes')} className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-colors ${ruleView === 'mes' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Fim do Mês</button>
-            </div>
-
-            <p className="text-xs text-slate-500 font-medium mb-4 text-center">
-              Base: <strong className="text-slate-800">R$ {activeIncome.toLocaleString('pt-BR', {minimumFractionDigits:2})}</strong> 
-              {ruleView === 'mes' && ' (Sem Creche)'}
-            </p>
-            
-            <div className="space-y-3">
-              <div>
-                <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">
-                  <span>50% Necessidades</span>
-                  <span>R$ {rule50.toLocaleString('pt-BR')}</span>
-                </div>
-                <div className="h-2 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-blue-400 w-1/2" /></div>
-              </div>
-              <div>
-                <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">
-                  <span>30% Desejos</span>
-                  <span>R$ {rule30.toLocaleString('pt-BR')}</span>
-                </div>
-                <div className="h-2 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-purple-400 w-[30%]" /></div>
-              </div>
-              <div>
-                <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-emerald-600 mb-1">
-                  <span className="flex items-center gap-1"><Award className="w-3 h-3"/> 20% Ouro (Investir)</span>
-                  <span>R$ {rule20.toLocaleString('pt-BR')}</span>
-                </div>
-                <div className="h-3 bg-emerald-100 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 w-[20%]" /></div>
-              </div>
-            </div>
-            
-            <div className="mt-5 p-3 bg-emerald-50 rounded-xl border border-emerald-100 flex items-start gap-3">
-              <Zap className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
-              <p className="text-xs text-emerald-800 font-medium">
-                Seu foco deve ser direcionar <strong className="font-black">R$ {rule20.toLocaleString('pt-BR', {minimumFractionDigits:2})}</strong> para investimentos este mês!
-              </p>
-            </div>
-          </div>
-
-          {/* Futuro */}
-          <div className="bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-sm text-white overflow-hidden relative">
-            <Rocket className="absolute -right-4 -top-4 w-24 h-24 text-white/5" />
-            <h4 className="font-bold flex items-center gap-2 mb-2 text-indigo-400">
-              <ArrowUpRight className="w-5 h-5" /> Projeção de Futuro
-            </h4>
-            <p className="text-sm text-slate-400 mb-4">Se você mantiver esse montante guardado, em 10 anos (estimativa 10% a.a):</p>
-            <h3 className="text-3xl font-black text-white">
-              R$ {futureValue10Years.toLocaleString('pt-BR', {minimumFractionDigits:2})}
-            </h3>
-          </div>
+      {/* Meus Investimentos */}
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+          <h3 className="text-lg font-black text-slate-800">Meus Investimentos</h3>
+          <button
+            onClick={() => setShowAddPortfolio(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl transition-all shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Nova Carteira
+          </button>
         </div>
 
-        {/* COLUNA DIREITA: Lista de Investimentos */}
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden lg:col-span-2 flex flex-col min-h-[400px]">
-          <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-            <div>
-              <h3 className="font-black text-slate-800 text-lg">Aportes do Mês</h3>
-              <p className="text-xs text-slate-500 mt-1">Registros salvos em {monthNames[month]}</p>
-            </div>
-            <button 
-              onClick={() => setIsAdding(true)}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold px-4 py-2 rounded-xl flex items-center gap-2 transition-colors shadow-sm"
-            >
-              <Plus className="w-4 h-4"/> Adicionar
-            </button>
+        {portfolios.length === 0 ? (
+          <div className="py-16 text-center text-slate-400">
+            <p className="font-bold text-slate-500 mb-1">Nenhuma carteira cadastrada</p>
+            <p className="text-sm">Clique em "Nova Carteira" para começar.</p>
           </div>
-          
-          <div className="p-4 flex-1 space-y-3">
-            {monthInvestments.length === 0 && (
-              <div className="text-center py-12 text-slate-400 font-medium">Nenhum investimento registrado este mês.</div>
-            )}
-            
-            {monthInvestments.map(inv => {
-              const typeInfo = INVESTMENT_TYPES.find(t => t.id === inv.type) || INVESTMENT_TYPES[5];
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {portfolios.map(p => {
+              const colors = PORTFOLIO_COLORS[p.color] || PORTFOLIO_COLORS.indigo;
+              const monthlyYield = p.current_balance * (p.monthly_rate / 100);
+              const isEditing = editingId === p.id;
+
               return (
-                <div key={inv.id} className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-4 transition-all hover:border-indigo-300">
-                  <div className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center text-2xl shrink-0">
-                    {typeInfo.icon}
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-bold text-slate-800">{typeInfo.name}</h4>
-                    <p className="text-xs font-medium text-slate-400">Data: {inv.date_str.split('-').reverse().join('/')}</p>
-                  </div>
-                  <div className="text-right flex items-center gap-4">
-                    <span className="font-black text-emerald-600 text-lg">R$ {inv.amount.toLocaleString('pt-BR', {minimumFractionDigits:2})}</span>
-                    <button onClick={() => deleteInvestment(inv.id)} className="text-slate-300 hover:text-red-500 p-2 transition-colors">
-                      <Trash2 className="w-5 h-5"/>
-                    </button>
+                <div key={p.id} className="px-6 py-5 hover:bg-slate-50/50 transition-colors">
+                  <div className="flex items-start gap-4">
+                    {/* Icon */}
+                    <div className={`w-12 h-12 rounded-2xl ${colors.icon_bg} flex items-center justify-center text-2xl flex-shrink-0`}>
+                      {p.icon}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <h4 className="font-black text-slate-800">{p.name}</h4>
+                          {p.subtitle && <p className="text-xs text-slate-400 font-medium">{p.subtitle}</p>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {isEditing ? (
+                            <>
+                              <button onClick={saveEdit} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
+                                <Check className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => setEditingId(null)} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors">
+                                <X className="w-4 h-4" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button onClick={() => setAddDividendPortfolioId(p.id)} className="p-1.5 text-slate-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors" title="Adicionar dividendo">
+                                <span className="text-sm">📅</span>
+                              </button>
+                              <button onClick={() => startEdit(p)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => deletePortfolio(p.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {isEditing ? (
+                        <div className="grid grid-cols-2 gap-3 mt-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Saldo Atual (R$)</label>
+                            <input
+                              type="text"
+                              value={editBalance}
+                              onChange={e => setEditBalance(e.target.value)}
+                              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Taxa Mensal (%)</label>
+                            <input
+                              type="text"
+                              value={editRate}
+                              onChange={e => setEditRate(e.target.value)}
+                              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-3 gap-4 mt-3">
+                          <div>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Saldo atual</p>
+                            <p className="font-black text-slate-800 text-base mt-0.5">{formatCurrency(p.current_balance)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Rendimento no mês</p>
+                            <p className={`font-black text-base mt-0.5 ${monthlyYield >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                              {monthlyYield >= 0 ? '+' : ''}{formatCurrency(monthlyYield)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Rentabilidade</p>
+                            <p className="font-black text-slate-800 text-base mt-0.5">{p.monthly_rate.toFixed(2)}%</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Dividends for this portfolio */}
+                      {dividends.filter(d => d.portfolio_id === p.id && d.date.startsWith(monthStr)).length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {dividends
+                            .filter(d => d.portfolio_id === p.id && d.date.startsWith(monthStr))
+                            .map(d => (
+                              <div key={d.id} className="flex items-center gap-2 px-3 py-1 bg-orange-50 border border-orange-100 rounded-lg">
+                                <span className="text-xs font-bold text-orange-600">📅 {formatDate(d.date)} — {formatCurrency(d.amount)}</span>
+                                <button onClick={() => deleteDividend(d.id)} className="text-orange-300 hover:text-rose-500 transition-colors">
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
             })}
+
+            <div className="px-6 py-4 flex items-center gap-2 text-slate-400">
+              <span className="text-sm">💡</span>
+              <p className="text-xs font-medium text-slate-400">Continue investindo e acompanhe seu patrimônio crescer.</p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* MODAL: Adicionar Investimento */}
-      {isAdding && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2rem] p-6 sm:p-8 w-full max-w-sm shadow-2xl relative">
-            <button onClick={() => setIsAdding(false)} className="absolute top-6 right-6 text-slate-400 hover:text-slate-600"><X className="w-6 h-6"/></button>
-            <h3 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-2"><TrendingUp className="text-emerald-500"/> Novo Aporte</h3>
-            
+      {/* Add Portfolio Modal */}
+      {showAddPortfolio && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-black text-slate-800">Nova Carteira</h3>
+              <button onClick={() => setShowAddPortfolio(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
             <div className="space-y-4">
-              <div>
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-400 ml-2">Valor R$</label>
-                <input 
-                  autoFocus
-                  value={invAmount} 
-                  onChange={e=>setInvAmount(e.target.value)} 
-                  placeholder="0,00" 
-                  inputMode="numeric" 
-                  className="w-full bg-emerald-50 border-2 border-emerald-100 p-4 rounded-2xl font-black text-emerald-700 text-2xl outline-none focus:border-emerald-400 transition-colors mt-1" 
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Nome</label>
+                  <input
+                    type="text"
+                    value={newName}
+                    onChange={e => setNewName(e.target.value)}
+                    placeholder="Ex: Caixinha Turbo"
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Subtítulo</label>
+                  <input
+                    type="text"
+                    value={newSubtitle}
+                    onChange={e => setNewSubtitle(e.target.value)}
+                    placeholder="Ex: Rendimento diário"
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-400 ml-2">Tipo de Investimento</label>
-                <select 
-                  value={invType} 
-                  onChange={e=>setInvType(e.target.value)} 
-                  className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl font-medium text-slate-700 outline-none focus:border-indigo-500 transition-colors mt-1 appearance-none"
-                >
-                  {INVESTMENT_TYPES.map(t => <option key={t.id} value={t.id}>{t.icon} {t.name}</option>)}
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Saldo Atual (R$)</label>
+                  <input
+                    type="text"
+                    value={newBalance}
+                    onChange={e => setNewBalance(e.target.value)}
+                    placeholder="0,00"
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Taxa Mensal (%)</label>
+                  <input
+                    type="text"
+                    value={newRate}
+                    onChange={e => setNewRate(e.target.value)}
+                    placeholder="0.15"
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-400 ml-2">Data</label>
-                <input 
-                  type="date" 
-                  value={invDate} 
-                  onChange={e=>setInvDate(e.target.value)} 
-                  className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl font-bold text-slate-700 outline-none focus:border-indigo-500 transition-colors mt-1" 
-                />
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ícone</label>
+                <div className="flex flex-wrap gap-2">
+                  {ICON_OPTIONS.map(ic => (
+                    <button
+                      key={ic}
+                      onClick={() => setNewIcon(ic)}
+                      className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center transition-all ${newIcon === ic ? 'bg-indigo-100 ring-2 ring-indigo-500' : 'bg-slate-100 hover:bg-slate-200'}`}
+                    >
+                      {ic}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <button 
-                onClick={handleSaveInvestment} 
-                className="w-full bg-slate-900 hover:bg-emerald-500 text-white font-bold py-4 rounded-2xl uppercase tracking-widest text-sm shadow-md transition-colors mt-6"
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Cor</label>
+                <div className="flex gap-2">
+                  {COLOR_OPTIONS.map(c => {
+                    const colors = PORTFOLIO_COLORS[c];
+                    return (
+                      <button
+                        key={c}
+                        onClick={() => setNewColor(c)}
+                        className={`w-8 h-8 rounded-full ${colors.dot} transition-all ${newColor === c ? 'ring-4 ring-offset-2 ring-slate-400' : ''}`}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+
+              <button
+                onClick={handleAddPortfolio}
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all shadow-sm"
               >
-                Gravar Investimento
+                Criar Carteira
               </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Add Dividend Modal */}
+      {addDividendPortfolioId && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-black text-slate-800">Registrar Dividendo</h3>
+              <button onClick={() => setAddDividendPortfolioId(null)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Data de referência</label>
+                <input type="date" value={newDividendDate} onChange={e => setNewDividendDate(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Valor (R$)</label>
+                <input type="text" value={newDividendAmount} onChange={e => setNewDividendAmount(e.target.value)}
+                  placeholder="0,00"
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Data de pagamento (opcional)</label>
+                <input type="date" value={newDividendPaymentDate} onChange={e => setNewDividendPaymentDate(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <button onClick={handleAddDividend}
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all shadow-sm">
+                Salvar Dividendo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

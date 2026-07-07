@@ -4,6 +4,40 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>My Google AI Studio App</title>
+    <script>
+      window.addEventListener('error', function(e) {
+        var errInfo = {
+          message: e.message,
+          filename: e.filename,
+          lineno: e.lineno,
+          colno: e.colno,
+          stack: e.error ? e.error.stack : ''
+        };
+        console.log('Sending error to listener:', errInfo);
+        fetch('http://localhost:3001/error', {
+          method: 'POST',
+          mode: 'cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(errInfo)
+        }).catch(function(err) { console.error('Failed to post error:', err); });
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        var errInfo = {
+          message: e.reason ? e.reason.message || String(e.reason) : 'Unhandled promise rejection',
+          filename: '',
+          lineno: 0,
+          colno: 0,
+          stack: e.reason && e.reason.stack ? e.reason.stack : ''
+        };
+        console.log('Sending rejection to listener:', errInfo);
+        fetch('http://localhost:3001/error', {
+          method: 'POST',
+          mode: 'cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(errInfo)
+        }).catch(function(err) { console.error('Failed to post rejection:', err); });
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>

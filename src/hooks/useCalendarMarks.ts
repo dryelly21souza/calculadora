@@ -54,9 +54,11 @@ export function useCalendarMarks() {
       marksData?.forEach(m => { marksMap[m.date_str] = m.mark_type; });
       setCalendarMarks(marksMap);
 
-      const { data: photosData } = await supabase.from('calendar_photos').select('*');
+      const { data: photosData } = await supabase.from('calendar_photos_metadata').select('*');
       const photosMap: Record<string, string[]> = {};
-      photosData?.forEach(p => { photosMap[p.date_str] = p.photos; });
+      photosData?.forEach(p => { 
+        photosMap[p.date_str] = new Array(p.photo_count).fill(''); 
+      });
       setCalendarPhotos(photosMap);
 
     } catch (err: any) {
@@ -87,10 +89,8 @@ export function useCalendarMarks() {
   const addPhoto = async (dateStr: string, dataUrl: string) => {
     setCalendarPhotos(prev => {
       const existing = prev[dateStr] ?? [];
-      const updatedArr = [...existing, dataUrl];
-      const newMap = { ...prev, [dateStr]: updatedArr };
-      supabase.from('calendar_photos').upsert({ date_str: dateStr, photos: updatedArr }).then();
-      return newMap;
+      const updatedArr = [...existing, '']; // only tracking length for badge
+      return { ...prev, [dateStr]: updatedArr };
     });
   };
 
@@ -102,10 +102,8 @@ export function useCalendarMarks() {
       
       if (updatedArr.length === 0) {
         delete newMap[dateStr];
-        supabase.from('calendar_photos').delete().eq('date_str', dateStr).then();
       } else {
         newMap[dateStr] = updatedArr;
-        supabase.from('calendar_photos').upsert({ date_str: dateStr, photos: updatedArr }).then();
       }
       return newMap;
     });

@@ -1,5 +1,6 @@
-import React, { useState, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Calculator, CheckCircle2, Camera, X, ZoomIn, Upload, Image as ImageIcon } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, Calculator, CheckCircle2, Camera, X, ZoomIn, Upload, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { supabase } from './lib/supabase';
 
 interface ExtrasCalendarProps {
   extrasCalendar: Record<string, '60' | '110' | null>;
@@ -8,6 +9,8 @@ interface ExtrasCalendarProps {
   calendarPhotos: Record<string, string[]>;
   addPhoto: (dateStr: string, dataUrl: string) => void;
   removePhoto: (dateStr: string, index: number) => void;
+  referenceMonth: string;
+  setReferenceMonth: (v: string) => void;
 }
 
 // ── Day Photo Modal ───────────────────────────────────────────────────────────
@@ -23,27 +26,42 @@ interface DayPhotoModalProps {
 }
 
 const DayPhotoModal: React.FC<DayPhotoModalProps> = ({
-  dateStr, dateLabel, status, photos, onClose, onAddPhoto, onRemovePhoto
+  dateStr, dateLabel, status, onClose, onAddPhoto, onRemovePhoto
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [deleteConfirmIdx, setDeleteConfirmIdx] = useState<number | null>(null);
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const typeLabel = status === '60' ? 'Extra 60%' : status === '110' ? 'Extra 110%' : 'Sem marcação';
-  const typeColor = status === '60' ? 'indigo' : status === '110' ? 'orange' : 'slate';
 
-  const handleFiles = (files: FileList | null) => {
+  useEffect(() => {
+    setIsLoading(true);
+    supabase.from('calendar_photos').select('photos').eq('date_str', dateStr).single()
+      .then(({ data }) => {
+        setPhotos(data?.photos || []);
+        setIsLoading(false);
+      });
+  }, [dateStr]);
+
+  const handleFiles = async (files: FileList | null) => {
     if (!files) return;
-    Array.from(files).forEach(file => {
-      if (!file.type.startsWith('image/')) return;
+    const newImages: string[] = [];
+    for (const file of Array.from(files)) {
       const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        if (result) onAddPhoto(result);
-      };
+      const p = new Promise<string>((resolve) => {
+        reader.onload = (e) => resolve(e.target?.result as string);
+      });
       reader.readAsDataURL(file);
-    });
+      const dataUrl = await p;
+      newImages.push(dataUrl);
+    }
+    const updatedPhotos = [...photos, ...newImages];
+    setPhotos(updatedPhotos);
+    onAddPhoto(newImages[0]); 
+    await supabase.from('calendar_photos').upsert({ date_str: dateStr, photos: updatedPhotos });
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -52,115 +70,102 @@ const DayPhotoModal: React.FC<DayPhotoModalProps> = ({
     handleFiles(e.dataTransfer.files);
   };
 
-  // Format date nicely
-  const [y, m, d] = dateStr.split('-');
-  const monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  const prettyDate = `${d} de ${monthNames[Number(m) - 1]} de ${y}`;
+  const removeLocalPhoto = async (idx: number) => {
+    const updated = photos.filter((_, i) => i !== idx);
+    setPhotos(updated);
+    onRemovePhoto(idx);
+    await supabase.from('calendar_photos').upsert({ date_str: dateStr, photos: updated });
+    setDeleteConfirmIdx(null);
+  };
 
   return (
     <>
-      {/* Overlay */}
-      <div
-        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-        onClick={onClose}
-      >
-        <div
-          className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden"
-          onClick={e => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className={`p-5 border-b border-slate-100 flex items-center justify-between bg-${typeColor}-50`}>
-            <div>
-              <p className={`text-xs font-black uppercase tracking-widest text-${typeColor}-500 mb-0.5`}>
-                {typeLabel}
-              </p>
-              <h3 className="text-lg font-black text-slate-800">{prettyDate}</h3>
+      <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl">
+        <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-4">
+          <div>
+            <h3 className="text-lg font-black text-slate-800">{dateLabel}</h3>
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`w-2.5 h-2.5 rounded-full ${status === '60' ? 'bg-indigo-500' : status === '110' ? 'bg-orange-500' : 'bg-slate-300'}`} />
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{typeLabel}</span>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-xl hover:bg-white/70 text-slate-500 hover:text-slate-800 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
+          </div>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"><X className="w-5 h-5" /></button>
+        </div>
+
+        <div className="space-y-4">
+          <div
+            className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all ${
+              isDragging
+                ? 'border-indigo-400 bg-indigo-50 scale-[1.01]'
+                : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
+            }`}
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={handleDrop}
+          >
+            <div className="flex flex-col items-center gap-2 text-slate-400">
+              <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
+                <Camera className="w-6 h-6" />
+              </div>
+              <p className="text-sm font-bold">Clique ou arraste fotos aqui</p>
+              <p className="text-xs text-slate-400">PNG, JPG, WEBP — múltiplas fotos aceitas</p>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={e => handleFiles(e.target.files)}
+            />
           </div>
 
-          {/* Body */}
-          <div className="flex-1 overflow-y-auto p-5 space-y-4">
-            {/* Drop zone */}
-            <div
-              className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all ${
-                isDragging
-                  ? 'border-indigo-400 bg-indigo-50 scale-[1.01]'
-                  : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
-              }`}
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
-              onDragLeave={() => setIsDragging(false)}
-              onDrop={handleDrop}
-            >
-              <div className="flex flex-col items-center gap-2 text-slate-400">
-                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
-                  <Camera className="w-6 h-6" />
-                </div>
-                <p className="text-sm font-bold">Clique ou arraste fotos aqui</p>
-                <p className="text-xs text-slate-400">PNG, JPG, WEBP — múltiplas fotos aceitas</p>
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={e => handleFiles(e.target.files)}
-              />
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-12 text-indigo-400">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-4"></div>
+              <p className="text-sm font-medium">Carregando fotos...</p>
             </div>
-
-            {/* Photo grid */}
-            {photos.length > 0 ? (
-              <div className="grid grid-cols-3 gap-3">
-                {photos.map((src, idx) => (
-                  <div key={idx} className="relative group rounded-xl overflow-hidden aspect-square bg-slate-100">
-                    <img
-                      src={src}
-                      alt={`Foto ${idx + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                    {/* Overlay actions */}
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-                      <button
-                        onClick={() => setLightboxSrc(src)}
-                        className="p-1.5 bg-white/90 rounded-lg hover:bg-white transition-colors shadow"
-                        title="Ver foto"
-                      >
-                        <ZoomIn className="w-4 h-4 text-slate-700" />
-                      </button>
-                      <button
-                        onClick={() => setDeleteConfirmIdx(idx)}
-                        className="p-1.5 bg-white/90 rounded-lg hover:bg-rose-50 transition-colors shadow"
-                        title="Remover foto"
-                      >
-                        <X className="w-4 h-4 text-rose-500" />
-                      </button>
-                    </div>
-                    {/* Index badge */}
-                    <span className="absolute top-1 left-1 bg-black/50 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md">
-                      {idx + 1}
-                    </span>
+          ) : photos.length > 0 ? (
+            <div className="grid grid-cols-3 gap-3 max-h-48 overflow-y-auto p-1">
+              {photos.map((src, i) => (
+                <div key={i} className="relative group rounded-xl overflow-hidden aspect-square border border-slate-100 bg-slate-50">
+                  <img src={src} alt="" className="object-cover w-full h-full" />
+                  <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <button onClick={() => setLightboxSrc(src)} className="p-1.5 bg-white/20 hover:bg-white/40 text-white rounded-lg transition-colors">
+                      <ZoomIn className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => setDeleteConfirmIdx(i)} className="p-1.5 bg-rose-500/80 hover:bg-rose-500 text-white rounded-lg transition-colors">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-2 py-6 text-slate-300">
-                <ImageIcon className="w-10 h-10" />
-                <p className="text-sm font-medium">Nenhuma foto adicionada ainda</p>
-              </div>
-            )}
-          </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-slate-400">
+              <ImageIcon className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+              <p className="text-xs font-bold uppercase tracking-wider">Nenhum comprovante anexado</p>
+            </div>
+          )}
 
-          {/* Footer */}
-          <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
-            <span className="text-xs text-slate-400 font-medium">
-              {photos.length} foto{photos.length !== 1 ? 's' : ''} nesta data
+          {deleteConfirmIdx !== null && (
+            <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl flex items-center justify-between gap-4 animate-in fade-in duration-200">
+              <div>
+                <p className="text-xs font-bold text-rose-800">Deseja excluir esta foto?</p>
+                <p className="text-[10px] text-rose-600 mt-0.5">Esta ação não pode ser desfeita.</p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setDeleteConfirmIdx(null)} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold">Cancelar</button>
+                <button onClick={() => removeLocalPhoto(deleteConfirmIdx)} className="px-3 py-1.5 bg-rose-600 text-white rounded-xl text-xs font-bold">Excluir</button>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+            <span className="text-xs font-bold text-slate-400">
+              {photos.length} foto(s)
             </span>
             <button
               onClick={() => fileInputRef.current?.click()}
@@ -172,8 +177,8 @@ const DayPhotoModal: React.FC<DayPhotoModalProps> = ({
           </div>
         </div>
       </div>
+    </div>
 
-      {/* Lightbox */}
       {lightboxSrc && (
         <div
           className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4"
@@ -215,7 +220,19 @@ const DayPhotoModal: React.FC<DayPhotoModalProps> = ({
               </button>
               <button 
                 onClick={() => {
-                  onRemovePhoto(deleteConfirmIdx);
+                  if (deleteConfirmIdx !== null) {
+                    const idx = deleteConfirmIdx;
+                    setPhotos(prev => {
+                      const updated = prev.filter((_, i) => i !== idx);
+                      if (updated.length === 0) {
+                        supabase.from('calendar_photos').delete().eq('date_str', dateStr).then();
+                      } else {
+                        supabase.from('calendar_photos').upsert({ date_str: dateStr, photos: updated }).then();
+                      }
+                      return updated;
+                    });
+                    onRemovePhoto(idx);
+                  }
                   setDeleteConfirmIdx(null);
                 }}
                 className="px-4 py-2 rounded-xl bg-rose-500 text-white font-semibold hover:bg-rose-600 transition-colors shadow-sm shadow-rose-200"
@@ -233,13 +250,15 @@ const DayPhotoModal: React.FC<DayPhotoModalProps> = ({
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export const ExtrasCalendar: React.FC<ExtrasCalendarProps> = ({
-  extrasCalendar, toggleExtra, baseSalary, calendarPhotos, addPhoto, removePhoto
+  extrasCalendar,
+  toggleExtra,
+  baseSalary,
+  calendarPhotos,
+  addPhoto,
+  removePhoto,
+  referenceMonth,
+  setReferenceMonth,
 }) => {
-  const [currentDate, setCurrentDate] = useState(() => {
-    const today = new Date();
-    return new Date(today.getFullYear(), today.getMonth(), 1);
-  });
-
   const [analysis, setAnalysis] = useState<null | {
     monthStr: string,
     startDateFmt: string,
@@ -254,14 +273,32 @@ export const ExtrasCalendar: React.FC<ExtrasCalendarProps> = ({
   // Photo modal state
   const [selectedDateStr, setSelectedDateStr] = useState<string | null>(null);
 
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
+  const [yearStr, monthStr_raw] = referenceMonth.split('-');
+  const year = parseInt(yearStr || '2026');
+  const month = parseInt(monthStr_raw || '7') - 1; // 0-indexed month
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDayOfWeek = new Date(year, month, 1).getDay();
 
-  const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
-  const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
+  const prevMonth = () => {
+    let prevM = month;
+    let prevY = year;
+    if (prevM === 0) {
+      prevM = 12;
+      prevY -= 1;
+    }
+    setReferenceMonth(`${prevY}-${String(prevM).padStart(2, '0')}`);
+  };
+
+  const nextMonth = () => {
+    let nextM = month + 2;
+    let nextY = year;
+    if (nextM === 13) {
+      nextM = 1;
+      nextY += 1;
+    }
+    setReferenceMonth(`${nextY}-${String(nextM).padStart(2, '0')}`);
+  };
 
   const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 

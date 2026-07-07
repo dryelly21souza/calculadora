@@ -18,6 +18,15 @@ export interface SalaryCalculation {
   net_salary: number;
   second_payment: number;
   notes?: string;
+  financing?: number;
+  investment_return?: number;
+  vehicle_name?: string;
+  vehicle_total_value?: number;
+  vehicle_paid_installments?: number;
+  vehicle_total_installments?: number;
+  installments_detail?: any;
+  vehicle_interest_rate?: number;
+  vehicle_due_day?: number;
 }
 
 export function useSalaryHistory() {
