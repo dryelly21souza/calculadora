@@ -30,6 +30,7 @@ import { useCalendarMarks } from './hooks/useCalendarMarks';
 import { useExpensesData } from './hooks/useExpensesData';
 import { useInvestmentsData } from './hooks/useInvestmentsData';
 import { useOvertimeLaunches } from './hooks/useOvertimeLaunches';
+import { usePortfolios } from './hooks/usePortfolios';
 import { OvertimeTab } from './OvertimeTab';
 import { ExpensesTab } from './ExpensesTab';
 import { InvestmentsTab } from './InvestmentsTab';
@@ -111,6 +112,7 @@ export default function App() {
   
   const expensesData = useExpensesData();
   const investmentsData = useInvestmentsData();
+  const portfoliosData = usePortfolios();
 
 
   // Load calculation if exists in history for the selected month
