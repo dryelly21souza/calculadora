@@ -473,6 +473,13 @@ export default function App() {
             <span className="font-medium text-sm">Investimentos</span>
           </button>
           <button 
+            onClick={() => { setActiveTab('financing'); setIsSidebarOpen(false); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'financing' ? 'bg-indigo-50 text-indigo-600 font-bold shadow-sm' : 'hover:bg-slate-50 hover:text-slate-800'}`}
+          >
+            <Car className="w-5 h-5" />
+            <span className="font-medium text-sm">Financiamento</span>
+          </button>
+          <button 
             onClick={() => { setActiveTab('history'); setIsSidebarOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'history' ? 'bg-indigo-50 text-indigo-600 font-bold shadow-sm' : 'hover:bg-slate-50 hover:text-slate-800'}`}
           >
@@ -729,6 +736,52 @@ export default function App() {
                     <div>
                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Pendente</p>
                       <p className="text-sm font-black text-orange-500">{formatCurrency(calculations.ot110Value)}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 flex justify-center">
+                <span className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
+                  Ver detalhes <ChevronRight className="w-4 h-4" />
+                </span>
+              </div>
+            </div>
+
+            {/* Card 2: Financiamento de Veículo */}
+            <div 
+              onClick={() => setActiveTab('financing')}
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
+            >
+              <div>
+                <h4 className="font-bold text-slate-800 flex items-center gap-2 group-hover:text-indigo-600 transition-colors">
+                  <Car className="w-5 h-5 text-indigo-500" />
+                  Financiamento
+                </h4>
+                <p className="text-xs text-slate-400 font-medium mt-1">{financingData?.vehicle_name || 'Não configurado'}</p>
+
+                <div className="flex items-center gap-6 mt-6">
+                  {/* Gauge */}
+                  {(() => {
+                    const total = financingData?.total_installments || 1;
+                    const paid = expensesData.expenses.filter(e => e.card_name?.startsWith('FINANCING-')).length || 0;
+                    const progressPercent = Math.min(100, (paid / total) * 100);
+                    return renderCircularGauge(progressPercent, `${Math.round(progressPercent)}%`, 'concluído', 'stroke-indigo-500');
+                  })()}
+
+                  {/* Details */}
+                  <div className="flex-1 space-y-3">
+                    <div>
+                      <p className="text-lg font-black text-slate-800 leading-none">
+                        {expensesData.expenses.filter(e => e.card_name?.startsWith('FINANCING-')).length} / {financingData?.total_installments || 0}
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">parcelas pagas</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-black text-slate-800 leading-none">
+                        {Math.max(0, (financingData?.total_installments || 0) - expensesData.expenses.filter(e => e.card_name?.startsWith('FINANCING-')).length)}
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">parcelas restantes</p>
                     </div>
                   </div>
                 </div>
