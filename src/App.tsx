@@ -604,7 +604,7 @@ export default function App() {
                 <span className="text-[9px] bg-slate-100 text-slate-500 px-1 py-0.5 rounded font-medium">Ver detalhes</span>
               </p>
               <p className="text-xl font-black text-slate-800 mt-1">{formatCurrency(totalDespesas)}</p>
-              <p className="text-[10px] text-slate-400 font-medium mt-1">Gastos do mês</p>
+              <p className="text-[10px] text-slate-400 font-medium mt-1">Gastos + Financiamento</p>
             </div>
           </div>
 
@@ -763,7 +763,7 @@ export default function App() {
                 <div className="flex items-center gap-6 mt-6">
                   {/* Gauge */}
                   {(() => {
-                    const total = financingData?.total_installments || 1;
+                    const total = financingData?.vehicle_total_installments || 1;
                     const paid = expensesData.expenses.filter(e => e.card_name?.startsWith('FINANCING-')).length || 0;
                     const progressPercent = Math.min(100, (paid / total) * 100);
                     return renderCircularGauge(progressPercent, `${Math.round(progressPercent)}%`, 'concluído', 'stroke-indigo-500');
@@ -773,13 +773,13 @@ export default function App() {
                   <div className="flex-1 space-y-3">
                     <div>
                       <p className="text-lg font-black text-slate-800 leading-none">
-                        {expensesData.expenses.filter(e => e.card_name?.startsWith('FINANCING-')).length} / {financingData?.total_installments || 0}
+                        {expensesData.expenses.filter(e => e.card_name?.startsWith('FINANCING-')).length} / {financingData?.vehicle_total_installments || 0}
                       </p>
                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">parcelas pagas</p>
                     </div>
                     <div>
                       <p className="text-lg font-black text-slate-800 leading-none">
-                        {Math.max(0, (financingData?.total_installments || 0) - expensesData.expenses.filter(e => e.card_name?.startsWith('FINANCING-')).length)}
+                        {Math.max(0, (financingData?.vehicle_total_installments || 0) - expensesData.expenses.filter(e => e.card_name?.startsWith('FINANCING-')).length)}
                       </p>
                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">parcelas restantes</p>
                     </div>
