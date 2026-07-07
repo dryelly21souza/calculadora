@@ -147,6 +147,29 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
     return `${pad(localData.due_day)}/${monthNamesFmt[targetDate.getMonth()]}/${targetDate.getFullYear()}`;
   };
 
+  const [togglingInstallments, setTogglingInstallments] = useState<Set<number>>(new Set());
+
+  // Clean up any existing duplicates
+  useEffect(() => {
+    const financingExpenses = expenses.filter(e => e.card_name?.startsWith(`FINANCING-${financingId}-INSTALLMENT-`));
+    const seen = new Set<string>();
+    const duplicatesToDelete: string[] = [];
+    
+    financingExpenses.forEach(e => {
+      if (e.card_name) {
+        if (seen.has(e.card_name)) {
+          duplicatesToDelete.push(e.id);
+        } else {
+          seen.add(e.card_name);
+        }
+      }
+    });
+    
+    if (duplicatesToDelete.length > 0) {
+      duplicatesToDelete.forEach(id => deleteExpense(id));
+    }
+  }, [expenses, financingId, deleteExpense]);
+
   const nextInstallmentDateStr = useMemo(() => {
     if (!nextUnpaidInstallment) return 'Quitada';
     return getInstallmentDueDateStr(nextUnpaidInstallment.number);
@@ -154,25 +177,40 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
 
   // Toggle paid status for an installment
   const handleTogglePaid = async (number: number) => {
+    if (togglingInstallments.has(number)) return;
+    
     const item = installmentsDetail.find(i => i.number === number);
     if (!item) return;
 
-    const tag = `FINANCING-${financingId}-INSTALLMENT-${number}`;
+    setTogglingInstallments(prev => new Set(prev).add(number));
 
-    if (item.paid && item.expenseId) {
-      // Uncheck -> Delete expense
-      await deleteExpense(item.expenseId);
-    } else {
-      // Check -> Create expense
-      await addExpense({
-        name: `Financiamento - Parcela ${number}/${localData.vehicle_total_installments}`,
-        amount: item.amount,
-        category: 'Financiamento',
-        date_str: `${referenceMonth}-15`, // Using reference month so it appears in the active month
-        status: 'paid',
-        expense_type: 'fixo',
-        payment_period: 'mes',
-        card_name: tag
+    try {
+      const tag = `FINANCING-${financingId}-INSTALLMENT-${number}`;
+
+      if (item.paid && item.expenseId) {
+        // Uncheck -> Delete expense
+        await deleteExpense(item.expenseId);
+      } else if (!item.paid) {
+        // Check -> Create expense (only if we didn't just check it in another rapid click)
+        const existing = expenses.find(e => e.card_name === tag);
+        if (!existing) {
+          await addExpense({
+            name: `Financiamento - Parcela ${number}/${localData.vehicle_total_installments}`,
+            amount: item.amount,
+            category: 'Financiamento',
+            date_str: `${referenceMonth}-15`, // Using reference month so it appears in the active month
+            status: 'paid',
+            expense_type: 'fixo',
+            payment_period: 'mes',
+            card_name: tag
+          });
+        }
+      }
+    } finally {
+      setTogglingInstallments(prev => {
+        const next = new Set(prev);
+        next.delete(number);
+        return next;
       });
     }
   };
