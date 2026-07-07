@@ -107,10 +107,11 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
   }, [vehicleTotalValue, paidCount, financing]);
 
 
-  // Percentage of total value paid
+  // Percentage of total value paid (based on full installment value, consistent with remainingBalance)
   const progressPercent = useMemo(() => {
-    return Math.min(100, (totalPaid / (vehicleTotalValue || 1)) * 100);
-  }, [totalPaid, vehicleTotalValue]);
+    if (!vehicleTotalValue) return 0;
+    return Math.min(100, ((paidCount * financing) / vehicleTotalValue) * 100);
+  }, [paidCount, financing, vehicleTotalValue]);
 
   // Next installment details
   const nextUnpaidInstallment = useMemo(() => {
@@ -373,7 +374,7 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Valor da Parcela Base</label>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Parcela Mensal Cheia</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">R$</span>
                   <input
@@ -383,6 +384,7 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-bold text-slate-700 transition-all text-sm"
                   />
                 </div>
+                <p className="text-[10px] text-slate-400 font-medium mt-1">⚠️ Informe o valor <strong>total</strong> da parcela mensal (não apenas a amortização). Cada parcela marcada como paga reduz o saldo devedor por este valor.</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
