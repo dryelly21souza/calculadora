@@ -51,16 +51,24 @@ export const useExpensesData = () => {
       if (fbRes.data) setFixedBills(fbRes.data as FixedBill[]);
       if (expRes.data) {
         const exps = expRes.data as Expense[];
-        const seen = new Set<string>();
+        const seenInstallments = new Set<string>();
         const duplicatesToDelete: string[] = [];
         const uniqueExps: Expense[] = [];
         
         exps.forEach(e => {
-          if (e.card_name?.startsWith('FINANCING-')) {
-            if (seen.has(e.card_name)) {
-              duplicatesToDelete.push(e.id);
+          if (e.card_name && e.card_name.startsWith('FINANCING-')) {
+            // Extract the installment number, e.g. from FINANCING-123-INSTALLMENT-48 -> "48"
+            const match = e.card_name.match(/INSTALLMENT-(\d+)$/);
+            if (match) {
+              const installmentNumber = match[1];
+              if (seenInstallments.has(installmentNumber)) {
+                duplicatesToDelete.push(e.id);
+              } else {
+                seenInstallments.add(installmentNumber);
+                uniqueExps.push(e);
+              }
             } else {
-              seen.add(e.card_name);
+              // Just in case it's malformed
               uniqueExps.push(e);
             }
           } else {

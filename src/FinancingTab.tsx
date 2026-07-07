@@ -99,12 +99,12 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
     const totalInst = localData.vehicle_total_installments || 1;
     const details = [];
 
-    // Filter financing expenses
-    const financingExpenses = expenses.filter(e => e.card_name?.startsWith(`FINANCING-${financingId}-INSTALLMENT-`));
+    // Filter ALL financing expenses regardless of exact ID to avoid duplicates if ID changes
+    const financingExpenses = expenses.filter(e => e.card_name?.startsWith('FINANCING-'));
 
     for (let i = 1; i <= totalInst; i++) {
-      const tag = `FINANCING-${financingId}-INSTALLMENT-${i}`;
-      const expense = financingExpenses.find(e => e.card_name === tag);
+      const suffix = `-INSTALLMENT-${i}`;
+      const expense = financingExpenses.find(e => e.card_name?.endsWith(suffix));
       
       details.push({
         number: i,
@@ -115,7 +115,7 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
       });
     }
     return details;
-  }, [localData.vehicle_total_installments, localData.installment_value, expenses, financingId]);
+  }, [localData.vehicle_total_installments, localData.installment_value, expenses]);
 
   const totalPaid = useMemo(() => {
     return installmentsDetail.filter(item => item.paid).reduce((acc, curr) => acc + (curr.amount || 0), 0);
@@ -173,7 +173,8 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
         await deleteExpense(item.expenseId);
       } else if (!item.paid) {
         // Check -> Create expense (only if we didn't just check it in another rapid click)
-        const existing = expenses.find(e => e.card_name === tag);
+        const suffix = `-INSTALLMENT-${number}`;
+        const existing = expenses.find(e => e.card_name?.startsWith('FINANCING-') && e.card_name?.endsWith(suffix));
         if (!existing) {
           await addExpense({
             name: `Financiamento - Parcela ${number}/${localData.vehicle_total_installments}`,
