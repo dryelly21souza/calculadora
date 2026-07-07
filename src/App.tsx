@@ -1085,6 +1085,7 @@ export default function App() {
           )}
           {activeTab === 'expenses' && (
             <ExpensesTab 
+              salaryHistory={uniqueHistory}
               expensesData={expensesData} 
               referenceMonth={referenceMonth}
               setReferenceMonth={setReferenceMonth}
