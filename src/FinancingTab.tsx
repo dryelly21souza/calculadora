@@ -98,13 +98,14 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
       .reduce((acc, curr) => acc + (curr.amount || 0), 0);
   }, [installmentsDetail]);
 
+  const paidCount = useMemo(() => {
+    return installmentsDetail.filter(item => item.paid).length;
+  }, [installmentsDetail]);
+
   const remainingBalance = useMemo(() => {
     return Math.max(0, vehicleTotalValue - (paidCount * financing));
   }, [vehicleTotalValue, paidCount, financing]);
 
-  const paidCount = useMemo(() => {
-    return installmentsDetail.filter(item => item.paid).length;
-  }, [installmentsDetail]);
 
   // Percentage of total value paid
   const progressPercent = useMemo(() => {
