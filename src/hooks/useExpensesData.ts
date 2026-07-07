@@ -49,7 +49,31 @@ export const useExpensesData = () => {
       ]);
 
       if (fbRes.data) setFixedBills(fbRes.data as FixedBill[]);
-      if (expRes.data) setExpensesState(expRes.data as Expense[]);
+      if (expRes.data) {
+        const exps = expRes.data as Expense[];
+        const seen = new Set<string>();
+        const duplicatesToDelete: string[] = [];
+        const uniqueExps: Expense[] = [];
+        
+        exps.forEach(e => {
+          if (e.card_name?.startsWith('FINANCING-')) {
+            if (seen.has(e.card_name)) {
+              duplicatesToDelete.push(e.id);
+            } else {
+              seen.add(e.card_name);
+              uniqueExps.push(e);
+            }
+          } else {
+            uniqueExps.push(e);
+          }
+        });
+        
+        setExpensesState(uniqueExps);
+        
+        if (duplicatesToDelete.length > 0) {
+          supabase.from('expenses').delete().in('id', duplicatesToDelete).then();
+        }
+      }
       
       if (sbRes.data) {
         const map: Record<string, number> = {};

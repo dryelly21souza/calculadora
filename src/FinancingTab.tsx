@@ -149,26 +149,7 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
 
   const [togglingInstallments, setTogglingInstallments] = useState<Set<number>>(new Set());
 
-  // Clean up any existing duplicates
-  useEffect(() => {
-    const financingExpenses = expenses.filter(e => e.card_name?.startsWith(`FINANCING-${financingId}-INSTALLMENT-`));
-    const seen = new Set<string>();
-    const duplicatesToDelete: string[] = [];
-    
-    financingExpenses.forEach(e => {
-      if (e.card_name) {
-        if (seen.has(e.card_name)) {
-          duplicatesToDelete.push(e.id);
-        } else {
-          seen.add(e.card_name);
-        }
-      }
-    });
-    
-    if (duplicatesToDelete.length > 0) {
-      duplicatesToDelete.forEach(id => deleteExpense(id));
-    }
-  }, [expenses, financingId, deleteExpense]);
+
 
   const nextInstallmentDateStr = useMemo(() => {
     if (!nextUnpaidInstallment) return 'Quitada';
