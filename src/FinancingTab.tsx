@@ -99,8 +99,8 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
   }, [installmentsDetail]);
 
   const remainingBalance = useMemo(() => {
-    return Math.max(0, vehicleTotalValue - totalPaid);
-  }, [vehicleTotalValue, totalPaid]);
+    return Math.max(0, vehicleTotalValue - (paidCount * financing));
+  }, [vehicleTotalValue, paidCount, financing]);
 
   const paidCount = useMemo(() => {
     return installmentsDetail.filter(item => item.paid).length;
@@ -332,6 +332,16 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
           <div>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Parcelas pagas</p>
             <p className="text-lg font-black text-slate-800 mt-0.5">{paidCount}</p>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-3xl border border-emerald-200 shadow-sm flex items-center gap-4 col-span-2 lg:col-span-1">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+            <DollarSign className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total pago</p>
+            <p className="text-lg font-black text-emerald-600 mt-0.5">{formatCurrency(totalPaid)}</p>
           </div>
         </div>
       </div>

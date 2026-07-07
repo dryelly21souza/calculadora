@@ -66,18 +66,18 @@ export default function App() {
     paid: boolean;
   }
 
-  const [financing, setFinancing] = useState<number>(2156.35);
+  const [financing, setFinancing] = useState<number>(0);
   const [investmentReturn, setInvestmentReturn] = useState<number>(0);
   
-  const [vehicleName, setVehicleName] = useState<string>('Toyota Corolla XEi 2.0');
-  const [vehicleTotalValue, setVehicleTotalValue] = useState<number>(89900);
+  const [vehicleName, setVehicleName] = useState<string>('');
+  const [vehicleTotalValue, setVehicleTotalValue] = useState<number>(0);
   const [vehiclePaidInstallments, setVehiclePaidInstallments] = useState<number>(0);
-  const [vehicleTotalInstallments, setVehicleTotalInstallments] = useState<number>(48);
+  const [vehicleTotalInstallments, setVehicleTotalInstallments] = useState<number>(0);
   const [installmentsDetail, setInstallmentsDetail] = useState<InstallmentDetail[]>([]);
   const [isFinancingDrawerOpen, setIsFinancingDrawerOpen] = useState<boolean>(false);
   const [isExpensesDetailModalOpen, setIsExpensesDetailModalOpen] = useState<boolean>(false);
-  const [vehicleInterestRate, setVehicleInterestRate] = useState<number>(1.29);
-  const [vehicleDueDay, setVehicleDueDay] = useState<number>(10);
+  const [vehicleInterestRate, setVehicleInterestRate] = useState<number>(0);
+  const [vehicleDueDay, setVehicleDueDay] = useState<number>(1);
 
   const goToPrevMonth = () => {
     const [yearStr, monthStr] = referenceMonth.split('-');
@@ -121,23 +121,23 @@ export default function App() {
     if (saved) {
       setBaseSalary(Number(saved.base_salary));
       setAdvancePayment(Number(saved.advance_payment));
-      setFinancing(Number(saved.financing ?? 2156.35));
+      setFinancing(Number(saved.financing ?? 0));
       setInvestmentReturn(Number(saved.investment_return ?? 0));
-      setVehicleName(saved.vehicle_name ?? 'Toyota Corolla XEi 2.0');
-      setVehicleTotalValue(Number(saved.vehicle_total_value ?? 89900));
+      setVehicleName(saved.vehicle_name ?? '');
+      setVehicleTotalValue(Number(saved.vehicle_total_value ?? 0));
       setVehiclePaidInstallments(Number(saved.vehicle_paid_installments ?? 0));
-      setVehicleTotalInstallments(Number(saved.vehicle_total_installments ?? 48));
-      setVehicleInterestRate(Number(saved.vehicle_interest_rate ?? 1.29));
-      setVehicleDueDay(Number(saved.vehicle_due_day ?? 10));
+      setVehicleTotalInstallments(Number(saved.vehicle_total_installments ?? 0));
+      setVehicleInterestRate(Number(saved.vehicle_interest_rate ?? 0));
+      setVehicleDueDay(Number(saved.vehicle_due_day ?? 1));
       
       const details = saved.installments_detail;
       if (Array.isArray(details) && details.length > 0) {
         setInstallmentsDetail(details as InstallmentDetail[]);
       } else {
         const initialDetails: InstallmentDetail[] = [];
-        const totalInst = Number(saved.vehicle_total_installments ?? 48);
+        const totalInst = Number(saved.vehicle_total_installments ?? 0);
         const paidInst = Number(saved.vehicle_paid_installments ?? 0);
-        const instVal = Number(saved.financing ?? 2156.35);
+        const instVal = Number(saved.financing ?? 0);
         for (let i = 1; i <= totalInst; i++) {
           initialDetails.push({
             number: i,
@@ -149,21 +149,13 @@ export default function App() {
       }
     } else {
       setInvestmentReturn(0);
-      setVehicleName('Toyota Corolla XEi 2.0');
-      setVehicleTotalValue(89900);
+      setVehicleName('');
+      setVehicleTotalValue(0);
       setVehiclePaidInstallments(0);
-      setVehicleTotalInstallments(48);
-      setVehicleInterestRate(1.29);
-      setVehicleDueDay(10);
-      const initialDetails: InstallmentDetail[] = [];
-      for (let i = 1; i <= 48; i++) {
-        initialDetails.push({
-          number: i,
-          amount: 2156.35,
-          paid: false,
-        });
-      }
-      setInstallmentsDetail(initialDetails);
+      setVehicleTotalInstallments(0);
+      setVehicleInterestRate(0);
+      setVehicleDueDay(1);
+      setInstallmentsDetail([]);
     }
   }, [referenceMonth, history]);
   useEffect(() => {
