@@ -76,6 +76,9 @@ export default function App() {
   const [installmentsDetail, setInstallmentsDetail] = useState<InstallmentDetail[]>([]);
   const [isFinancingDrawerOpen, setIsFinancingDrawerOpen] = useState<boolean>(false);
   const [isExpensesDetailModalOpen, setIsExpensesDetailModalOpen] = useState<boolean>(false);
+  const [isNetBalanceDetailModalOpen, setIsNetBalanceDetailModalOpen] = useState<boolean>(false);
+  const [isIncomeDetailModalOpen, setIsIncomeDetailModalOpen] = useState<boolean>(false);
+  const [isInvestmentsDetailModalOpen, setIsInvestmentsDetailModalOpen] = useState<boolean>(false);
   const [vehicleInterestRate, setVehicleInterestRate] = useState<number>(0);
   const [vehicleDueDay, setVehicleDueDay] = useState<number>(1);
 
@@ -650,7 +653,7 @@ export default function App() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Card 1: Total Líquido */}
           <div 
-            onClick={() => setActiveTab('history')}
+            onClick={() => setIsNetBalanceDetailModalOpen(true)}
             className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-all cursor-pointer group"
           >
             <div className="p-4 bg-emerald-50 rounded-2xl text-emerald-600 group-hover:scale-105 transition-transform">
@@ -668,7 +671,7 @@ export default function App() {
 
           {/* Card 2: Receitas */}
           <div 
-            onClick={() => setActiveTab('extras')}
+            onClick={() => setIsIncomeDetailModalOpen(true)}
             className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-all cursor-pointer group"
           >
             <div className="p-4 bg-indigo-50 rounded-2xl text-indigo-600 group-hover:scale-105 transition-transform">
@@ -704,7 +707,7 @@ export default function App() {
 
           {/* Card 4: Investimentos */}
           <div 
-            onClick={() => setActiveTab('investments')}
+            onClick={() => setIsInvestmentsDetailModalOpen(true)}
             className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-all cursor-pointer group"
           >
             <div className="p-4 bg-blue-50 rounded-2xl text-blue-600 group-hover:scale-105 transition-transform">
@@ -1382,6 +1385,124 @@ export default function App() {
             <div className="border-t border-slate-100 pt-4 mt-4 flex justify-between items-center">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Geral</span>
               <span className="text-xl font-black text-slate-800">{formatCurrency(totalDespesas)}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Saldo Líquido */}
+      {isNetBalanceDetailModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                  <Wallet className="w-5 h-5 text-emerald-500" />
+                  Composição do Saldo Líquido
+                </h3>
+              </div>
+              <button onClick={() => setIsNetBalanceDetailModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-thin">
+              <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                <span className="font-bold text-slate-700 text-sm">Total Receitas</span>
+                <span className="font-black text-emerald-500 text-sm">{formatCurrency(totalReceitas)}</span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                <span className="font-bold text-slate-700 text-sm">Total Despesas</span>
+                <span className="font-black text-rose-500 text-sm">-{formatCurrency(totalDespesas)}</span>
+              </div>
+            </div>
+            <div className="border-t border-slate-100 pt-4 mt-4 flex justify-between items-center">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Saldo Líquido</span>
+              <span className={`text-xl font-black ${totalLiquido >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{formatCurrency(totalLiquido)}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Receitas */}
+      {isIncomeDetailModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-indigo-500" />
+                  Composição das Receitas
+                </h3>
+              </div>
+              <button onClick={() => setIsIncomeDetailModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 scrollbar-thin">
+              <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                <span className="font-bold text-slate-700 text-sm">Salário Base</span>
+                <span className="font-black text-emerald-500 text-sm">{formatCurrency(baseSalary)}</span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                <div>
+                  <span className="font-bold text-slate-700 text-sm block">Horas Extras 60%</span>
+                  <span className="text-[10px] text-slate-400">{ot60Days} dias lançados</span>
+                </div>
+                <span className="font-black text-emerald-500 text-sm">{formatCurrency(calculations.ot60Value)}</span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                <div>
+                  <span className="font-bold text-slate-700 text-sm block">Horas Extras 110%</span>
+                  <span className="text-[10px] text-slate-400">{ot110Days} dias lançados</span>
+                </div>
+                <span className="font-black text-emerald-500 text-sm">{formatCurrency(calculations.ot110Value)}</span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                <span className="font-bold text-slate-700 text-sm">Rendimentos e Dividendos</span>
+                <span className="font-black text-emerald-500 text-sm">{formatCurrency(investmentReturn)}</span>
+              </div>
+            </div>
+            <div className="border-t border-slate-100 pt-4 mt-4 flex justify-between items-center">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Geral</span>
+              <span className="text-xl font-black text-indigo-600">{formatCurrency(totalReceitas)}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Investido */}
+      {isInvestmentsDetailModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                  <TrendingUpIcon className="w-5 h-5 text-blue-500" />
+                  Composição dos Aportes
+                </h3>
+              </div>
+              <button onClick={() => setIsInvestmentsDetailModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 scrollbar-thin">
+              {investmentsData?.investments.filter(i => i.date_str && i.date_str.startsWith(referenceMonth)).length > 0 ? (
+                investmentsData.investments
+                  .filter(i => i.date_str && i.date_str.startsWith(referenceMonth))
+                  .map((inv) => (
+                    <div key={inv.id} className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 shadow-sm hover:bg-slate-50/50 transition-colors">
+                      <div>
+                        <span className="font-bold text-slate-700 text-sm block">{inv.name}</span>
+                        <span className="text-[10px] text-slate-400 font-medium block mt-0.5 uppercase">
+                          {inv.type}
+                        </span>
+                      </div>
+                      <span className="font-black text-blue-600 text-sm">{formatCurrency(inv.amount)}</span>
+                    </div>
+                  ))
+              ) : (
+                <div className="text-center py-6 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 text-slate-400 text-xs font-medium">
+                  Nenhum aporte registrado para este mês.
+                </div>
+              )}
+            </div>
+            <div className="border-t border-slate-100 pt-4 mt-4 flex justify-between items-center">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Aportado</span>
+              <span className="text-xl font-black text-blue-600">{formatCurrency(totalInvestments)}</span>
             </div>
           </div>
         </div>
