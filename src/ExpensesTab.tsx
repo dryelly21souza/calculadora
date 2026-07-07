@@ -156,6 +156,7 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({
 
   const resetForm = () => {
     setExpName(''); setExpAmount(''); setExpType('variavel'); setExpPeriod('mes');
+    setExpDate(`${monthStr}-${new Date().getDate().toString().padStart(2,'0')}`);
   };
 
   const handleSaveGeneralExpense = async () => {
@@ -170,10 +171,19 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({
       };
       const response = await addFixedBill(fb);
       if (response.data) {
-        addExpense({
-          fixed_bill_id: response.data.id, name: fb.name, amount: fb.amount, category: fb.category,
-          date_str: expDate, status: 'pending', expense_type: 'fixo', payment_period: expPeriod
-        });
+        const startMonthStr = expDate.substring(0, 7);
+        const targetMonths = Array.from(new Set([startMonthStr, ...initializedMonths.filter(m => m >= startMonthStr)]));
+        const newExps: Omit<Expense, 'id'>[] = targetMonths.map(mStr => ({
+          fixed_bill_id: response.data.id,
+          name: fb.name,
+          amount: fb.amount,
+          category: fb.category,
+          date_str: `${mStr}-${String(fb.due_day).padStart(2, '0')}`,
+          status: 'pending',
+          expense_type: 'fixo',
+          payment_period: expPeriod
+        }));
+        addManyExpenses(newExps);
       }
     } else if (expType === 'parcelada') {
       const times = parseInt(installments);
@@ -335,7 +345,10 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({
                 </button>
               )}
               <button
-                onClick={() => setShowAddGeneral(true)}
+                onClick={() => {
+                  resetForm();
+                  setShowAddGeneral(true);
+                }}
                 className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm"
               >
                 <Plus className="w-4 h-4" /> Adicionar
@@ -613,7 +626,10 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                 <h4 className="font-black text-slate-800">Lançamentos do Cartão</h4>
                 <button
-                  onClick={() => setShowAddCredit(true)}
+                  onClick={() => {
+                    setCreditDate(`${monthStr}-${new Date().getDate().toString().padStart(2,'0')}`);
+                    setShowAddCredit(true);
+                  }}
                   className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all"
                 >
                   <Plus className="w-3.5 h-3.5" /> Adicionar

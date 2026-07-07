@@ -115,9 +115,10 @@ export default function App() {
   const portfoliosData = usePortfolios();
 
 
-  // Load calculation if exists in history for the selected month
+  // Load calculation if exists in history for the selected month, or fallback to previous vehicle data
   useEffect(() => {
     const saved = history.find(h => h.reference_month === referenceMonth);
+    
     if (saved) {
       setBaseSalary(Number(saved.base_salary));
       setAdvancePayment(Number(saved.advance_payment));
@@ -149,13 +150,48 @@ export default function App() {
       }
     } else {
       setInvestmentReturn(0);
-      setVehicleName('');
-      setVehicleTotalValue(0);
-      setVehiclePaidInstallments(0);
-      setVehicleTotalInstallments(0);
-      setVehicleInterestRate(0);
-      setVehicleDueDay(1);
-      setInstallmentsDetail([]);
+      
+      // Look for the most recent previous entry to copy vehicle data
+      const previousEntry = history
+        .filter(h => h.reference_month < referenceMonth)
+        .sort((a, b) => b.reference_month.localeCompare(a.reference_month))[0];
+
+      if (previousEntry) {
+        setFinancing(Number(previousEntry.financing ?? 0));
+        setVehicleName(previousEntry.vehicle_name ?? '');
+        setVehicleTotalValue(Number(previousEntry.vehicle_total_value ?? 0));
+        setVehiclePaidInstallments(Number(previousEntry.vehicle_paid_installments ?? 0));
+        setVehicleTotalInstallments(Number(previousEntry.vehicle_total_installments ?? 0));
+        setVehicleInterestRate(Number(previousEntry.vehicle_interest_rate ?? 0));
+        setVehicleDueDay(Number(previousEntry.vehicle_due_day ?? 1));
+        
+        const details = previousEntry.installments_detail;
+        if (Array.isArray(details) && details.length > 0) {
+          setInstallmentsDetail(details as InstallmentDetail[]);
+        } else {
+          const initialDetails: InstallmentDetail[] = [];
+          const totalInst = Number(previousEntry.vehicle_total_installments ?? 0);
+          const paidInst = Number(previousEntry.vehicle_paid_installments ?? 0);
+          const instVal = Number(previousEntry.financing ?? 0);
+          for (let i = 1; i <= totalInst; i++) {
+            initialDetails.push({
+              number: i,
+              amount: instVal,
+              paid: i <= paidInst,
+            });
+          }
+          setInstallmentsDetail(initialDetails);
+        }
+      } else {
+        setFinancing(0);
+        setVehicleName('');
+        setVehicleTotalValue(0);
+        setVehiclePaidInstallments(0);
+        setVehicleTotalInstallments(0);
+        setVehicleInterestRate(0);
+        setVehicleDueDay(1);
+        setInstallmentsDetail([]);
+      }
     }
   }, [referenceMonth, history]);
   useEffect(() => {
@@ -613,24 +649,36 @@ export default function App() {
         {/* Row of 4 Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Card 1: Total Líquido */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
-            <div className="p-4 bg-emerald-50 rounded-2xl text-emerald-600">
+          <div 
+            onClick={() => setActiveTab('history')}
+            className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-all cursor-pointer group"
+          >
+            <div className="p-4 bg-emerald-50 rounded-2xl text-emerald-600 group-hover:scale-105 transition-transform">
               <Wallet className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Saldo Líquido</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                Saldo Líquido 
+                <span className="text-[9px] bg-slate-100 text-slate-500 px-1 py-0.5 rounded font-medium">Ver detalhes</span>
+              </p>
               <p className="text-xl font-black text-slate-800 mt-1">{formatCurrency(totalLiquido)}</p>
               <p className="text-[10px] text-slate-400 font-medium mt-1">Líquido do mês</p>
             </div>
           </div>
 
           {/* Card 2: Receitas */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
-            <div className="p-4 bg-indigo-50 rounded-2xl text-indigo-600">
+          <div 
+            onClick={() => setActiveTab('extras')}
+            className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-all cursor-pointer group"
+          >
+            <div className="p-4 bg-indigo-50 rounded-2xl text-indigo-600 group-hover:scale-105 transition-transform">
               <TrendingUp className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Receitas</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                Receitas 
+                <span className="text-[9px] bg-slate-100 text-slate-500 px-1 py-0.5 rounded font-medium">Ver detalhes</span>
+              </p>
               <p className="text-xl font-black text-slate-800 mt-1">{formatCurrency(totalReceitas)}</p>
               <p className="text-[10px] text-slate-400 font-medium mt-1">Salário + Extras + Rendimentos + Dividendos</p>
             </div>
@@ -655,12 +703,18 @@ export default function App() {
           </div>
 
           {/* Card 4: Investimentos */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
-            <div className="p-4 bg-blue-50 rounded-2xl text-blue-600">
+          <div 
+            onClick={() => setActiveTab('investments')}
+            className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-all cursor-pointer group"
+          >
+            <div className="p-4 bg-blue-50 rounded-2xl text-blue-600 group-hover:scale-105 transition-transform">
               <TrendingUpIcon className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Investido</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                Investido 
+                <span className="text-[9px] bg-slate-100 text-slate-500 px-1 py-0.5 rounded font-medium">Ver detalhes</span>
+              </p>
               <p className="text-xl font-black text-slate-800 mt-1">{formatCurrency(totalInvestments)}</p>
               <p className="text-[10px] text-slate-400 font-medium mt-1">Aportes do mês</p>
             </div>
