@@ -36,6 +36,7 @@ import { ExpensesTab } from './ExpensesTab';
 import { InvestmentsTab } from './InvestmentsTab';
 import { EditableTitle } from './components/EditableTitle';
 import { FinancingTab } from './FinancingTab';
+import { useFinancingData } from './hooks/useFinancingData';
 
 // Constants and Tables
 const STANDARD_MONTHLY_HOURS = 220;
@@ -59,28 +60,14 @@ export default function App() {
   const [referenceMonth, setReferenceMonth] = useState<string>(
     new Date().toISOString().substring(0, 7) // YYYY-MM
   );
-  
-  interface InstallmentDetail {
-    number: number;
-    amount: number;
-    paid: boolean;
-  }
-
-  const [financing, setFinancing] = useState<number>(0);
+  const { financingData, saveFinancingData } = useFinancingData();
   const [investmentReturn, setInvestmentReturn] = useState<number>(0);
   
-  const [vehicleName, setVehicleName] = useState<string>('');
-  const [vehicleTotalValue, setVehicleTotalValue] = useState<number>(0);
-  const [vehiclePaidInstallments, setVehiclePaidInstallments] = useState<number>(0);
-  const [vehicleTotalInstallments, setVehicleTotalInstallments] = useState<number>(0);
-  const [installmentsDetail, setInstallmentsDetail] = useState<InstallmentDetail[]>([]);
   const [isFinancingDrawerOpen, setIsFinancingDrawerOpen] = useState<boolean>(false);
   const [isExpensesDetailModalOpen, setIsExpensesDetailModalOpen] = useState<boolean>(false);
   const [isNetBalanceDetailModalOpen, setIsNetBalanceDetailModalOpen] = useState<boolean>(false);
   const [isIncomeDetailModalOpen, setIsIncomeDetailModalOpen] = useState<boolean>(false);
   const [isInvestmentsDetailModalOpen, setIsInvestmentsDetailModalOpen] = useState<boolean>(false);
-  const [vehicleInterestRate, setVehicleInterestRate] = useState<number>(0);
-  const [vehicleDueDay, setVehicleDueDay] = useState<number>(1);
 
   const goToPrevMonth = () => {
     const [yearStr, monthStr] = referenceMonth.split('-');
@@ -125,32 +112,7 @@ export default function App() {
     if (saved) {
       setBaseSalary(Number(saved.base_salary));
       setAdvancePayment(Number(saved.advance_payment));
-      setFinancing(Number(saved.financing ?? 0));
       setInvestmentReturn(Number(saved.investment_return ?? 0));
-      setVehicleName(saved.vehicle_name ?? '');
-      setVehicleTotalValue(Number(saved.vehicle_total_value ?? 0));
-      setVehiclePaidInstallments(Number(saved.vehicle_paid_installments ?? 0));
-      setVehicleTotalInstallments(Number(saved.vehicle_total_installments ?? 0));
-      setVehicleInterestRate(Number(saved.vehicle_interest_rate ?? 0));
-      setVehicleDueDay(Number(saved.vehicle_due_day ?? 1));
-      
-      const details = saved.installments_detail;
-      if (Array.isArray(details) && details.length > 0) {
-        setInstallmentsDetail(details as InstallmentDetail[]);
-      } else {
-        const initialDetails: InstallmentDetail[] = [];
-        const totalInst = Number(saved.vehicle_total_installments ?? 0);
-        const paidInst = Number(saved.vehicle_paid_installments ?? 0);
-        const instVal = Number(saved.financing ?? 0);
-        for (let i = 1; i <= totalInst; i++) {
-          initialDetails.push({
-            number: i,
-            amount: instVal,
-            paid: i <= paidInst,
-          });
-        }
-        setInstallmentsDetail(initialDetails);
-      }
     } else {
       setInvestmentReturn(0);
       
@@ -162,31 +124,6 @@ export default function App() {
       if (previousEntry) {
         setBaseSalary(Number(previousEntry.base_salary ?? 0));
         setAdvancePayment(Number(previousEntry.advance_payment ?? 1200));
-        setFinancing(Number(previousEntry.financing ?? 0));
-        setVehicleName(previousEntry.vehicle_name ?? '');
-        setVehicleTotalValue(Number(previousEntry.vehicle_total_value ?? 0));
-        setVehiclePaidInstallments(Number(previousEntry.vehicle_paid_installments ?? 0));
-        setVehicleTotalInstallments(Number(previousEntry.vehicle_total_installments ?? 0));
-        setVehicleInterestRate(Number(previousEntry.vehicle_interest_rate ?? 0));
-        setVehicleDueDay(Number(previousEntry.vehicle_due_day ?? 1));
-        
-        const details = previousEntry.installments_detail;
-        if (Array.isArray(details) && details.length > 0) {
-          setInstallmentsDetail(details as InstallmentDetail[]);
-        } else {
-          const initialDetails: InstallmentDetail[] = [];
-          const totalInst = Number(previousEntry.vehicle_total_installments ?? 0);
-          const paidInst = Number(previousEntry.vehicle_paid_installments ?? 0);
-          const instVal = Number(previousEntry.financing ?? 0);
-          for (let i = 1; i <= totalInst; i++) {
-            initialDetails.push({
-              number: i,
-              amount: instVal,
-              paid: i <= paidInst,
-            });
-          }
-          setInstallmentsDetail(initialDetails);
-        }
       }
     }
   }, [referenceMonth, history]);
@@ -309,20 +246,12 @@ export default function App() {
   }, [advancePayment, calculations.secondPayment, investmentReturn, totalDividends]);
 
   const totalDespesas = useMemo(() => {
-    return totalExpenses + financing;
-  }, [totalExpenses, financing]);
+    return totalExpenses;
+  }, [totalExpenses]);
 
   const totalLiquido = useMemo(() => {
     return totalReceitas - totalDespesas;
   }, [totalReceitas, totalDespesas]);
-
-  const vehicleTotalPaid = useMemo(() => {
-    return vehiclePaidInstallments * financing;
-  }, [vehiclePaidInstallments, financing]);
-
-  const vehicleRemainingBalance = useMemo(() => {
-    return Math.max(0, vehicleTotalValue - vehicleTotalPaid);
-  }, [vehicleTotalValue, vehicleTotalPaid]);
 
   const handleSave = async () => {
     setSaveStatus('saving');
@@ -340,15 +269,7 @@ export default function App() {
       fgts_value: calculations.fgts,
       net_salary: calculations.totalNet,
       second_payment: calculations.secondPayment,
-      financing,
       investment_return: investmentReturn,
-      vehicle_name: vehicleName,
-      vehicle_total_value: vehicleTotalValue,
-      vehicle_paid_installments: vehiclePaidInstallments,
-      vehicle_total_installments: vehicleTotalInstallments,
-      installments_detail: installmentsDetail,
-      vehicle_interest_rate: vehicleInterestRate,
-      vehicle_due_day: vehicleDueDay,
     };
 
     const result = await saveCalculation(calculationData);
@@ -461,33 +382,23 @@ export default function App() {
 
       if (saved) {
         const base = Number(saved.base_salary);
-        const o60 = Number(saved.ot60_value ?? 0);
-        const o110 = Number(saved.ot110_value ?? 0);
-        const ret = Number(saved.investment_return ?? 0);
-        entradas = base + o60 + o110 + ret;
+        const ot60 = Number(saved.ot60_value ?? 0);
+        const ot110 = Number(saved.ot110_value ?? 0);
+        const inv = Number(saved.investment_return ?? 0);
 
-        const fin = Number(saved.financing ?? 2156.35);
-        const ins = Number(saved.inss_deduction ?? 0);
-        const fix = Number(saved.fixed_deductions ?? 0);
-        
-        const expSum = expensesData?.expenses
-          ? expensesData.expenses
-              .filter(e => e.date_str && e.date_str.startsWith(refStr))
-              .reduce((acc, curr) => acc + (curr.amount || 0), 0)
-          : 0;
-
-        saidas = -(expSum + fin + ins + fix);
-        saldo = entradas + saidas;
+        entradas = base + ot60 + ot110 + inv;
+        saidas = Number(saved.fixed_deductions ?? 0) + Number(saved.inss_deduction ?? 0);
+        saldo = entradas - saidas;
       } else {
         if (refStr === referenceMonth) {
           entradas = totalReceitas;
-          saidas = -totalDespesas;
+          saidas = totalDespesas;
           saldo = totalLiquido;
         } else {
           if (baseSalary > 0) {
             entradas = baseSalary;
-            saidas = -(financing + calculations.inss + calculations.fixedDeductionsTotal);
-            saldo = entradas + saidas;
+            saidas = calculations.inss + calculations.fixedDeductionsTotal;
+            saldo = entradas - saidas;
           } else {
             entradas = 0;
             saidas = 0;
@@ -507,7 +418,7 @@ export default function App() {
     }
 
     return list;
-  }, [referenceMonth, history, expensesData, totalReceitas, totalDespesas, totalLiquido, baseSalary, financing, calculations.inss, calculations.fixedDeductionsTotal]);
+  }, [referenceMonth, history, totalReceitas, totalDespesas, totalLiquido, baseSalary, calculations.inss, calculations.fixedDeductionsTotal]);
 
   const renderSidebar = () => (
     <>
@@ -562,13 +473,6 @@ export default function App() {
             <span className="font-medium text-sm">Investimentos</span>
           </button>
           <button 
-            onClick={() => { setActiveTab('financing'); setIsSidebarOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'financing' ? 'bg-indigo-50 text-indigo-600 font-bold shadow-sm' : 'hover:bg-slate-50 hover:text-slate-800'}`}
-          >
-            <Car className="w-5 h-5" />
-            <span className="font-medium text-sm">Financiamento</span>
-          </button>
-          <button 
             onClick={() => { setActiveTab('history'); setIsSidebarOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'history' ? 'bg-indigo-50 text-indigo-600 font-bold shadow-sm' : 'hover:bg-slate-50 hover:text-slate-800'}`}
           >
@@ -609,7 +513,6 @@ export default function App() {
 
   const renderDashboard = () => {
     const totalOtHours = calculations.ot60HoursTotal + calculations.ot110HoursTotal;
-    const progressPercent = Math.min(100, (vehiclePaidInstallments / (vehicleTotalInstallments || 1)) * 100);
 
     return (
       <div className="space-y-8 animate-in fade-in zoom-in-95 duration-300">
@@ -694,7 +597,7 @@ export default function App() {
                 <span className="text-[9px] bg-slate-100 text-slate-500 px-1 py-0.5 rounded font-medium">Ver detalhes</span>
               </p>
               <p className="text-xl font-black text-slate-800 mt-1">{formatCurrency(totalDespesas)}</p>
-              <p className="text-[10px] text-slate-400 font-medium mt-1">Gastos + Financiamento</p>
+              <p className="text-[10px] text-slate-400 font-medium mt-1">Gastos do mês</p>
             </div>
           </div>
 
@@ -718,7 +621,6 @@ export default function App() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Column 1: Gráfico de Resumo Financeiro (col-span-2) */}
           <div className="lg:col-span-2 space-y-8">
             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
@@ -727,8 +629,6 @@ export default function App() {
                   Resumo do Mês
                 </h3>
               </div>
-
-              {/* Legend */}
               <div className="flex justify-center items-center gap-6 text-xs font-bold text-slate-500">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded bg-emerald-500" />
@@ -803,9 +703,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* Column 2: Dashboard Gauges / Cards (col-span-1) */}
           <div className="space-y-6">
-            {/* Card 1: Horas Extras a Receber */}
             <div 
               onClick={() => setActiveTab('extras')}
               className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
@@ -817,10 +715,8 @@ export default function App() {
                 </h4>
                 
                 <div className="flex items-center gap-6 mt-6">
-                  {/* Gauge */}
                   {renderCircularGauge(100, `${totalOtHours.toFixed(1)}h`, 'registradas no mês', 'stroke-indigo-500')}
                   
-                  {/* Details */}
                   <div className="flex-1 space-y-3">
                     <div>
                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Valor total</p>
@@ -833,47 +729,6 @@ export default function App() {
                     <div>
                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Pendente</p>
                       <p className="text-sm font-black text-orange-500">{formatCurrency(calculations.ot110Value)}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-slate-100 flex justify-center">
-                <span className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
-                  Ver detalhes <ChevronRight className="w-4 h-4" />
-                </span>
-              </div>
-            </div>
-
-            {/* Card 2: Financiamento de Veículo */}
-            <div 
-              onClick={() => setActiveTab('financing')}
-              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
-            >
-              <div>
-                <h4 className="font-bold text-slate-800 flex items-center gap-2 group-hover:text-indigo-600 transition-colors">
-                  <Car className="w-5 h-5 text-indigo-500" />
-                  Financiamento de Veículo
-                </h4>
-                <p className="text-xs text-slate-400 font-medium mt-1">{vehicleName}</p>
-
-                <div className="flex items-center gap-6 mt-6">
-                  {/* Gauge */}
-                  {renderCircularGauge(progressPercent, `${Math.round(progressPercent)}%`, 'concluído', 'stroke-indigo-500')}
-
-                  {/* Details */}
-                  <div className="flex-1 space-y-3">
-                    <div>
-                      <p className="text-lg font-black text-slate-800 leading-none">
-                        {vehiclePaidInstallments} / {vehicleTotalInstallments}
-                      </p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">parcelas pagas</p>
-                    </div>
-                    <div>
-                      <p className="text-lg font-black text-slate-800 leading-none">
-                        {Math.max(0, vehicleTotalInstallments - vehiclePaidInstallments)}
-                      </p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">parcelas restantes</p>
                     </div>
                   </div>
                 </div>
@@ -938,19 +793,6 @@ export default function App() {
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-slate-600">Financiamento Mensal</label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">R$</span>
-            <input 
-              type="text" 
-              value={formatInputDisplay(financing)}
-              onChange={(e) => setFinancing(parseCurrencyInput(e.target.value))}
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none font-bold text-slate-700"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-2">
           <label className="text-sm font-semibold text-slate-600">Retorno de Investimentos</label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">R$</span>
@@ -964,7 +806,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Horas Extras Inputs Inside Base Data */}
       <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-4">
         <div className="flex items-center justify-between border-b border-slate-200/60 pb-3">
           <h3 className="text-xs font-bold text-slate-700 flex items-center gap-2">
@@ -1018,7 +859,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Buttons inside Dados Base */}
       <button
         onClick={handleSave}
         disabled={saveStatus === 'saving'}
@@ -1042,7 +882,6 @@ export default function App() {
         {saveStatus === 'saving' ? 'Salvando...' : saveStatus === 'success' ? 'Salvo!' : saveStatus === 'error' ? 'Erro ao Salvar' : 'Salvar Cálculo'}
       </button>
 
-      {/* Conditional Detailed Breakdown Inside Base Data */}
       {baseSalary > 0 && (
         <div className="border-t border-slate-100 pt-6 space-y-4 animate-in slide-in-from-top-4 duration-300">
           <div className="flex items-center justify-between">
@@ -1113,7 +952,6 @@ export default function App() {
               <span className="font-bold text-blue-600">{formatCurrency(calculations.fgts)}</span>
             </div>
 
-            {/* Day 30 payments showing right here! */}
             <div className="mt-4 pt-4 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-indigo-50/60 p-4 rounded-xl border border-indigo-100 text-indigo-900 font-bold space-y-1">
                 <span className="block text-[10px] text-indigo-400 uppercase">Pagamento Dia 30 (Com Creche)</span>
@@ -1217,7 +1055,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row font-sans">
-      {/* Mobile Topbar */}
       <div className="lg:hidden bg-white border-b border-slate-100 text-slate-800 p-4 flex items-center justify-between shadow-sm z-30 sticky top-0">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-md shadow-indigo-100">
@@ -1235,7 +1072,6 @@ export default function App() {
 
       {renderSidebar()}
 
-      {/* Main Content Area */}
       <div className="flex-1 lg:ml-64 p-4 md:p-8 lg:p-12 overflow-y-auto w-full min-h-screen">
         <div className="max-w-6xl mx-auto">
           {activeTab === 'dashboard' && renderDashboard()}
@@ -1249,7 +1085,6 @@ export default function App() {
           )}
           {activeTab === 'expenses' && (
             <ExpensesTab 
-              salaryHistory={uniqueHistory} 
               expensesData={expensesData} 
               referenceMonth={referenceMonth}
               setReferenceMonth={setReferenceMonth}
@@ -1257,23 +1092,13 @@ export default function App() {
           )}
           {activeTab === 'financing' && (
             <FinancingTab
-              vehicleName={vehicleName}
-              setVehicleName={setVehicleName}
-              vehicleTotalValue={vehicleTotalValue}
-              setVehicleTotalValue={setVehicleTotalValue}
-              financing={financing}
-              setFinancing={setFinancing}
-              vehiclePaidInstallments={vehiclePaidInstallments}
-              setVehiclePaidInstallments={setVehiclePaidInstallments}
-              vehicleTotalInstallments={vehicleTotalInstallments}
-              setVehicleTotalInstallments={setVehicleTotalInstallments}
-              installmentsDetail={installmentsDetail}
-              setInstallmentsDetail={setInstallmentsDetail}
+              financingData={financingData}
+              saveFinancingData={saveFinancingData}
+              expenses={expensesData.expenses}
+              addExpense={expensesData.addExpense}
+              updateExpense={expensesData.updateExpense}
+              deleteExpense={expensesData.deleteExpense}
               formatCurrency={formatCurrency}
-              vehicleInterestRate={vehicleInterestRate}
-              setVehicleInterestRate={setVehicleInterestRate}
-              vehicleDueDay={vehicleDueDay}
-              setVehicleDueDay={setVehicleDueDay}
               referenceMonth={referenceMonth}
               setReferenceMonth={setReferenceMonth}
             />
@@ -1303,7 +1128,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Modal: Detalhamento de Despesas do Dashboard */}
       {isExpensesDetailModalOpen && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200">
@@ -1313,17 +1137,6 @@ export default function App() {
                   <TrendingDown className="w-5 h-5 text-rose-500" />
                   Composição das Despesas
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Visualizando o mês de {(() => {
-                    const [y, m] = referenceMonth.split('-');
-                    const monthIndex = parseInt(m || '7') - 1;
-                    const monthNames = [
-                      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-                      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-                    ];
-                    return `${monthNames[monthIndex] || 'Julho'}/${y || '2026'}`;
-                  })()}
-                </p>
               </div>
               <button 
                 onClick={() => setIsExpensesDetailModalOpen(false)} 
@@ -1334,16 +1147,6 @@ export default function App() {
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-thin">
-              {/* Item 1: Financiamento */}
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/60 flex justify-between items-center">
-                <div>
-                  <span className="font-bold text-slate-800 text-sm block">Financiamento de Veículo</span>
-                  <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mt-0.5 block">{vehicleName}</span>
-                </div>
-                <span className="font-black text-slate-700 text-sm">{formatCurrency(financing)}</span>
-              </div>
-
-              {/* Item 2: Gastos do Mês */}
               <div className="space-y-2">
                 <div className="flex justify-between items-center px-1">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Gastos Cadastrados ({expensesData.expenses.filter(e => e.date_str && e.date_str.startsWith(referenceMonth)).length})</span>
@@ -1374,7 +1177,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Total Footer */}
             <div className="border-t border-slate-100 pt-4 mt-4 flex justify-between items-center">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Geral</span>
               <span className="text-xl font-black text-slate-800">{formatCurrency(totalDespesas)}</span>
@@ -1383,7 +1185,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Modal: Saldo Líquido */}
       {isNetBalanceDetailModalOpen && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200">
@@ -1414,7 +1215,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Modal: Receitas */}
       {isIncomeDetailModalOpen && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200">

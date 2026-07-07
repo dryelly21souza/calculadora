@@ -1,59 +1,57 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { 
-  Car, DollarSign, CalendarDays, CheckCircle2, TrendingUp, 
-  ChevronRight, ChevronLeft, HelpCircle, RefreshCw, 
-  Percent, Calendar, CreditCard, Award 
+  Car, DollarSign, CalendarDays, CheckCircle2,
+  ChevronRight, ChevronLeft, RefreshCw, 
+  Calendar, CreditCard, Award 
 } from 'lucide-react';
-
-interface InstallmentDetail {
-  number: number;
-  amount: number;
-  paid: boolean;
-}
+import { FinancingDetails } from './hooks/useFinancingData';
+import { Expense } from './hooks/useExpensesData';
 
 interface FinancingTabProps {
-  vehicleName: string;
-  setVehicleName: (v: string) => void;
-  vehicleTotalValue: number;
-  setVehicleTotalValue: (v: number) => void;
-  financing: number;
-  setFinancing: (v: number) => void;
-  vehiclePaidInstallments: number;
-  setVehiclePaidInstallments: (v: number) => void;
-  vehicleTotalInstallments: number;
-  setVehicleTotalInstallments: (v: number) => void;
-  installmentsDetail: InstallmentDetail[];
-  setInstallmentsDetail: React.Dispatch<React.SetStateAction<InstallmentDetail[]>>;
+  financingData: FinancingDetails | null;
+  saveFinancingData: (details: FinancingDetails) => void;
+  expenses: Expense[];
+  addExpense: (exp: Omit<Expense, 'id'>) => Promise<any>;
+  updateExpense: (id: string, updates: Partial<Expense>) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
   formatCurrency: (v: number) => string;
-  vehicleInterestRate: number;
-  setVehicleInterestRate: (v: number) => void;
-  vehicleDueDay: number;
-  setVehicleDueDay: (v: number) => void;
   referenceMonth: string;
   setReferenceMonth: (v: string) => void;
 }
 
 export const FinancingTab: React.FC<FinancingTabProps> = ({
-  vehicleName,
-  setVehicleName,
-  vehicleTotalValue,
-  setVehicleTotalValue,
-  financing,
-  setFinancing,
-  vehiclePaidInstallments,
-  setVehiclePaidInstallments,
-  vehicleTotalInstallments,
-  setVehicleTotalInstallments,
-  installmentsDetail,
-  setInstallmentsDetail,
+  financingData,
+  saveFinancingData,
+  expenses,
+  addExpense,
+  updateExpense,
+  deleteExpense,
   formatCurrency,
-  vehicleInterestRate,
-  setVehicleInterestRate,
-  vehicleDueDay,
-  setVehicleDueDay,
   referenceMonth,
   setReferenceMonth,
 }) => {
+  // Local state for the inputs before saving globally
+  const [localData, setLocalData] = useState<FinancingDetails>({
+    vehicle_name: '',
+    vehicle_total_value: 0,
+    vehicle_total_installments: 1,
+    installment_value: 0,
+    interest_rate: 0,
+    due_day: 1
+  });
+
+  // Sync with global state when it loads
+  useEffect(() => {
+    if (financingData) {
+      setLocalData(financingData);
+    }
+  }, [financingData]);
+
+  const updateLocalData = (updates: Partial<FinancingDetails>) => {
+    const updated = { ...localData, ...updates };
+    setLocalData(updated);
+    saveFinancingData(updated);
+  };
 
   const parseCurrencyInput = (value: string) => {
     const numericString = value.replace(/\D/g, '');
@@ -91,11 +89,33 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
     setReferenceMonth(`${nextY}-${String(nextM).padStart(2, '0')}`);
   };
 
-  // Calculations
+  // Build the installments list by merging the generated list with expenses
+  const financingId = financingData?.id || 'GLOBAL';
+
+  const installmentsDetail = useMemo(() => {
+    const totalInst = localData.vehicle_total_installments || 1;
+    const details = [];
+
+    // Filter financing expenses
+    const financingExpenses = expenses.filter(e => e.card_name?.startsWith(`FINANCING-${financingId}-INSTALLMENT-`));
+
+    for (let i = 1; i <= totalInst; i++) {
+      const tag = `FINANCING-${financingId}-INSTALLMENT-${i}`;
+      const expense = financingExpenses.find(e => e.card_name === tag);
+      
+      details.push({
+        number: i,
+        amount: expense ? expense.amount : localData.installment_value,
+        paid: !!expense && expense.status === 'paid',
+        expenseId: expense?.id,
+        paidMonth: expense?.date_str // Can be used to show when it was paid
+      });
+    }
+    return details;
+  }, [localData.vehicle_total_installments, localData.installment_value, expenses, financingId]);
+
   const totalPaid = useMemo(() => {
-    return installmentsDetail
-      .filter(item => item.paid)
-      .reduce((acc, curr) => acc + (curr.amount || 0), 0);
+    return installmentsDetail.filter(item => item.paid).reduce((acc, curr) => acc + (curr.amount || 0), 0);
   }, [installmentsDetail]);
 
   const paidCount = useMemo(() => {
@@ -103,118 +123,67 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
   }, [installmentsDetail]);
 
   const remainingBalance = useMemo(() => {
-    return Math.max(0, vehicleTotalValue - (paidCount * financing));
-  }, [vehicleTotalValue, paidCount, financing]);
+    return Math.max(0, localData.vehicle_total_value - totalPaid);
+  }, [localData.vehicle_total_value, totalPaid]);
 
-
-  // Percentage of total value paid (based on full installment value, consistent with remainingBalance)
   const progressPercent = useMemo(() => {
-    if (!vehicleTotalValue) return 0;
-    return Math.min(100, ((paidCount * financing) / vehicleTotalValue) * 100);
-  }, [paidCount, financing, vehicleTotalValue]);
+    if (!localData.vehicle_total_value) return 0;
+    return Math.min(100, (totalPaid / localData.vehicle_total_value) * 100);
+  }, [totalPaid, localData.vehicle_total_value]);
 
-  // Next installment details
   const nextUnpaidInstallment = useMemo(() => {
     return installmentsDetail.find(item => !item.paid);
   }, [installmentsDetail]);
 
-  const nextInstallmentDateStr = useMemo(() => {
-    if (!nextUnpaidInstallment) return 'Quitada';
-    const number = nextUnpaidInstallment.number;
-    const startYear = 2026;
-    const startMonth = 5; // June (0-indexed)
-    const targetDate = new Date(startYear, startMonth + (number - 1), vehicleDueDay);
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    return `${pad(vehicleDueDay)}/${pad(targetDate.getMonth() + 1)}/${targetDate.getFullYear()}`;
-  }, [nextUnpaidInstallment, vehicleDueDay]);
-
   const getInstallmentDueDateStr = (number: number) => {
     const startYear = 2026;
     const startMonth = 5; // June (0-indexed)
-    const targetDate = new Date(startYear, startMonth + (number - 1), vehicleDueDay);
+    const targetDate = new Date(startYear, startMonth + (number - 1), localData.due_day);
     const pad = (n: number) => n.toString().padStart(2, '0');
     const monthNamesFmt = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    return `${pad(vehicleDueDay)}/${monthNamesFmt[targetDate.getMonth()]}/${targetDate.getFullYear()}`;
+    return `${pad(localData.due_day)}/${monthNamesFmt[targetDate.getMonth()]}/${targetDate.getFullYear()}`;
   };
 
-  // Adjust total number of installments in list
-  const handleTotalInstallmentsChange = (newTotal: number) => {
-    const total = Math.max(1, newTotal);
-    setVehicleTotalInstallments(total);
-    setInstallmentsDetail(prev => {
-      const copy = [...prev];
-      if (copy.length < total) {
-        for (let i = copy.length + 1; i <= total; i++) {
-          copy.push({
-            number: i,
-            amount: financing,
-            paid: false,
-          });
-        }
-      } else if (copy.length > total) {
-        return copy.slice(0, total);
-      }
-      return copy;
-    });
-  };
+  const nextInstallmentDateStr = useMemo(() => {
+    if (!nextUnpaidInstallment) return 'Quitada';
+    return getInstallmentDueDateStr(nextUnpaidInstallment.number);
+  }, [nextUnpaidInstallment, localData.due_day]);
 
   // Toggle paid status for an installment
-  const handleTogglePaid = (number: number) => {
-    setInstallmentsDetail(prev => {
-      const updated = prev.map(item => {
-        if (item.number === number) {
-          const nextPaid = !item.paid;
-          return { ...item, paid: nextPaid };
-        }
-        return item;
-      });
-      const newPaidCount = updated.filter(item => item.paid).length;
-      setVehiclePaidInstallments(newPaidCount);
-      return updated;
-    });
-  };
+  const handleTogglePaid = async (number: number) => {
+    const item = installmentsDetail.find(i => i.number === number);
+    if (!item) return;
 
-  // Edit amount for a single installment
-  const handleAmountChange = (number: number, valueStr: string) => {
-    const newAmount = parseCurrencyInput(valueStr);
-    setInstallmentsDetail(prev => {
-      return prev.map(item => {
-        if (item.number === number) {
-          return { ...item, amount: newAmount };
-        }
-        return item;
-      });
-    });
-  };
+    const tag = `FINANCING-${financingId}-INSTALLMENT-${number}`;
 
-  // Helper: Fill all unpaid installments with current monthly parcel value
-  const handleFillRemainingWithDefault = () => {
-    setInstallmentsDetail(prev => {
-      return prev.map(item => {
-        if (!item.paid) {
-          return { ...item, amount: financing };
-        }
-        return item;
-      });
-    });
-  };
-
-  // Helper: Reset all to monthly parcel and check status based on paidInstallments count
-  const handleResetToDefaults = () => {
-    const freshDetails: InstallmentDetail[] = [];
-    for (let i = 1; i <= vehicleTotalInstallments; i++) {
-      freshDetails.push({
-        number: i,
-        amount: financing,
-        paid: i <= vehiclePaidInstallments,
+    if (item.paid && item.expenseId) {
+      // Uncheck -> Delete expense
+      await deleteExpense(item.expenseId);
+    } else {
+      // Check -> Create expense
+      await addExpense({
+        name: `Financiamento - Parcela ${number}/${localData.vehicle_total_installments}`,
+        amount: item.amount,
+        category: 'Financiamento',
+        date_str: `${referenceMonth}-15`, // Using reference month so it appears in the active month
+        status: 'paid',
+        expense_type: 'fixo',
+        payment_period: 'mes',
+        card_name: tag
       });
     }
-    setInstallmentsDetail(freshDetails);
+  };
+
+  const handleAmountChange = async (number: number, valueStr: string) => {
+    const newAmount = parseCurrencyInput(valueStr);
+    const item = installmentsDetail.find(i => i.number === number);
+    if (!item || !item.expenseId) return;
+
+    await updateExpense(item.expenseId, { amount: newAmount });
   };
 
   return (
     <div className="space-y-8 animate-in fade-in zoom-in-95 duration-300 pb-24">
-      {/* Header */}
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <h2 className="text-3xl font-black tracking-tight text-slate-900 flex items-center gap-2">
@@ -235,15 +204,12 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
         </div>
       </header>
 
-      {/* Main progress box (Visual Layout from Image) */}
       <div className="bg-white border border-slate-200 rounded-3xl p-6 md:p-8 shadow-sm flex flex-col md:flex-row gap-8 items-center">
-        
-        {/* Left Side: Balance and Progress */}
         <div className="flex-1 w-full space-y-4">
           <div>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Saldo devedor atual</p>
             <p className="text-3xl md:text-4xl font-black text-indigo-600 mt-1">{formatCurrency(remainingBalance)}</p>
-            <p className="text-xs font-black text-emerald-600 mt-1">{progressPercent.toFixed(0)}% do valor total</p>
+            <p className="text-xs font-black text-emerald-600 mt-1">{progressPercent.toFixed(0)}% pago</p>
           </div>
 
           <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
@@ -255,14 +221,12 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
 
           <div className="flex justify-between items-center text-xs font-bold">
             <span className="text-emerald-600">{formatCurrency(totalPaid)} pagos</span>
-            <span className="text-slate-400">{formatCurrency(vehicleTotalValue)} total financiado</span>
+            <span className="text-slate-400">{formatCurrency(localData.vehicle_total_value)} total financiado</span>
           </div>
         </div>
 
-        {/* Vertical Divider */}
         <div className="hidden md:block w-px bg-slate-200 self-stretch my-2" />
 
-        {/* Right Side: Next installment details */}
         <div className="w-full md:w-80 flex flex-col gap-6">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
@@ -290,21 +254,18 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
             </div>
           </div>
         </div>
-
       </div>
 
-      {/* 4 Bottom Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
         <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
             <CreditCard className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Parcela mensal</p>
-            <p className="text-lg font-black text-slate-800 mt-0.5">{formatCurrency(financing)}</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Parcela base</p>
+            <p className="text-lg font-black text-slate-800 mt-0.5">{formatCurrency(localData.installment_value)}</p>
           </div>
         </div>
-
 
         <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-500 shrink-0">
@@ -312,7 +273,7 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
           </div>
           <div>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Parcelas totais</p>
-            <p className="text-lg font-black text-slate-800 mt-0.5">{vehicleTotalInstallments}</p>
+            <p className="text-lg font-black text-slate-800 mt-0.5">{localData.vehicle_total_installments}</p>
           </div>
         </div>
 
@@ -337,10 +298,7 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
         </div>
       </div>
 
-      {/* Inputs & Checklist Split Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Left Column: Input Panel */}
         <div className="space-y-6">
           <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
             <h3 className="text-lg font-black text-slate-800 border-b border-slate-100 pb-4 flex items-center gap-2">
@@ -353,8 +311,8 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Modelo do Veículo</label>
                 <input
                   type="text"
-                  value={vehicleName}
-                  onChange={(e) => setVehicleName(e.target.value)}
+                  value={localData.vehicle_name}
+                  onChange={(e) => updateLocalData({ vehicle_name: e.target.value })}
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-bold text-slate-700 transition-all text-sm"
                   placeholder="Ex: Toyota Corolla XEi 2.0"
                 />
@@ -366,8 +324,8 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">R$</span>
                   <input
                     type="text"
-                    value={formatInputDisplay(vehicleTotalValue)}
-                    onChange={(e) => setVehicleTotalValue(parseCurrencyInput(e.target.value))}
+                    value={formatInputDisplay(localData.vehicle_total_value)}
+                    onChange={(e) => updateLocalData({ vehicle_total_value: parseCurrencyInput(e.target.value) })}
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-bold text-slate-700 transition-all text-sm"
                   />
                 </div>
@@ -379,12 +337,11 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">R$</span>
                   <input
                     type="text"
-                    value={formatInputDisplay(financing)}
-                    onChange={(e) => setFinancing(parseCurrencyInput(e.target.value))}
+                    value={formatInputDisplay(localData.installment_value)}
+                    onChange={(e) => updateLocalData({ installment_value: parseCurrencyInput(e.target.value) })}
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-bold text-slate-700 transition-all text-sm"
                   />
                 </div>
-                <p className="text-[10px] text-slate-400 font-medium mt-1">⚠️ Informe o valor <strong>total</strong> da parcela mensal (não apenas a amortização). Cada parcela marcada como paga reduz o saldo devedor por este valor.</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -393,8 +350,8 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
                   <input
                     type="number"
                     min="1"
-                    value={vehicleTotalInstallments}
-                    onChange={(e) => handleTotalInstallmentsChange(Number(e.target.value))}
+                    value={localData.vehicle_total_installments}
+                    onChange={(e) => updateLocalData({ vehicle_total_installments: Number(e.target.value) })}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-bold text-slate-700 transition-all text-sm"
                   />
                 </div>
@@ -405,46 +362,28 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
                     type="number"
                     min="1"
                     max="31"
-                    value={vehicleDueDay}
-                    onChange={(e) => setVehicleDueDay(Number(e.target.value))}
+                    value={localData.due_day}
+                    onChange={(e) => updateLocalData({ due_day: Number(e.target.value) })}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-bold text-slate-700 transition-all text-sm"
                   />
                 </div>
               </div>
-
-            </div>
-
-            {/* Quick Actions */}
-            <div className="pt-4 border-t border-slate-100 space-y-3">
-              <button
-                onClick={handleFillRemainingWithDefault}
-                className="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
-                title="Aplica o valor de parcela base em todas as parcelas não pagas"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                Aplicar Parcela Base nas Restantes
-              </button>
-
-              <button
-                onClick={handleResetToDefaults}
-                className="w-full py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
-              >
-                Resetar Todas para Parcela Base
-              </button>
             </div>
           </div>
 
           <div className="bg-indigo-600 p-6 rounded-3xl text-white shadow-lg shadow-indigo-100 space-y-4">
             <h4 className="font-bold text-sm uppercase tracking-wider text-indigo-200 flex items-center gap-2">
-              <Award className="w-4 h-4" /> Amortização Direta
+              <Award className="w-4 h-4" /> Amortização e Integração
             </h4>
             <p className="text-xs leading-relaxed text-indigo-100">
-              Ao pagar um valor diferente do base ou antecipar parcelas, altere o valor pago diretamente ao lado. O saldo devedor restante recalcula de forma automática e instantânea.
+              Ao pagar um valor diferente do base ou antecipar parcelas, altere o valor pago diretamente ao lado. O saldo devedor restante recalcula de forma automática.
+            </p>
+            <p className="text-xs leading-relaxed text-indigo-100 mt-2">
+              <strong>Nota:</strong> As parcelas marcadas como pagas são adicionadas automaticamente na sua aba de Despesas do mês de referência atual.
             </p>
           </div>
         </div>
 
-        {/* Right Column: Installments checklist */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col h-[650px]">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
@@ -455,10 +394,9 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
               <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded-md">Controle Manual</span>
             </div>
 
-            {/* Installments List */}
             <div className="flex-1 overflow-y-auto pr-2 space-y-3 scrollbar-thin">
               {installmentsDetail.map((item) => {
-                const isAmortized = item.paid && item.amount !== financing;
+                const isAmortized = item.paid && item.amount !== localData.installment_value;
                 return (
                   <div 
                     key={item.number} 
@@ -485,13 +423,18 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
                           </span>
                         </span>
                         {isAmortized && (
-                          <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded-md mt-1 inline-block">
+                          <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded-md mt-1 inline-block mr-1">
                             Amortizado
                           </span>
                         )}
                         {item.paid && !isAmortized && (
-                          <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-md mt-1 inline-block">
-                            Pago normal
+                          <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-md mt-1 inline-block mr-1">
+                            Pago
+                          </span>
+                        )}
+                        {item.paid && item.paidMonth && (
+                          <span className="text-[10px] bg-slate-200 text-slate-600 font-bold px-1.5 py-0.5 rounded-md mt-1 inline-block">
+                            em {item.paidMonth.substring(0, 7)}
                           </span>
                         )}
                       </div>
