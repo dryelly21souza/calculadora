@@ -50,7 +50,10 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
   const updateLocalData = (updates: Partial<FinancingDetails>) => {
     const updated = { ...localData, ...updates };
     setLocalData(updated);
-    saveFinancingData(updated);
+  };
+
+  const handleSaveVehicleData = () => {
+    saveFinancingData(localData);
   };
 
   const parseCurrencyInput = (value: string) => {
@@ -382,6 +385,14 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
               <strong>Nota:</strong> As parcelas marcadas como pagas são adicionadas automaticamente na sua aba de Despesas do mês de referência atual.
             </p>
           </div>
+          
+          <button
+            onClick={handleSaveVehicleData}
+            className="w-full flex justify-center items-center gap-2 py-4 px-8 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold transition-all shadow-md active:scale-[0.98]"
+          >
+            <CheckCircle2 className="w-5 h-5" />
+            Salvar Dados do Veículo
+          </button>
         </div>
 
         <div className="lg:col-span-2 space-y-6">
@@ -446,14 +457,10 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
                         <input
                           type="text"
-                          value={formatInputDisplay(item.amount)}
-                          onChange={(e) => handleAmountChange(item.number, e.target.value)}
+                          defaultValue={formatInputDisplay(item.amount)}
+                          onBlur={(e) => handleAmountChange(item.number, e.target.value)}
                           disabled={!item.paid}
-                          className={`w-full pl-8 pr-3 py-1.5 rounded-xl border outline-none font-bold text-xs text-right transition-all ${
-                            item.paid
-                              ? 'bg-white border-slate-200 focus:ring-2 focus:ring-indigo-500 text-slate-700'
-                              : 'bg-slate-100/50 border-slate-200 text-slate-400'
-                          }`}
+                          className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none font-bold text-slate-700 text-sm disabled:opacity-50"
                         />
                       </div>
                     </div>
