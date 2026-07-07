@@ -111,11 +111,20 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({
   const totalLeft = totalBaseIncome - totalAllExpenses;
 
   // Credit card specific
-  const [creditLimit, setCreditLimit] = useState<number>(2000);
+  const [creditLimit, setCreditLimit] = useState<number>(() => { const s = localStorage.getItem('creditLimit'); return s ? Number(s) : 2000; });
   const [isEditingLimit, setIsEditingLimit] = useState(false);
   const [editLimitVal, setEditLimitVal] = useState('');
-  const [billDueDay, setBillDueDay] = useState(5);
-  const [billPayDay, setBillPayDay] = useState(25);
+  const [billDueDay, setBillDueDay] = useState<number>(() => { const s = localStorage.getItem('billDueDay'); return s ? Number(s) : 5; });
+  const [billPayDay, setBillPayDay] = useState<number>(() => { const s = localStorage.getItem('billPayDay'); return s ? Number(s) : 25; });
+  const [isEditingDates, setIsEditingDates] = useState(false);
+  const [editPayDay, setEditPayDay] = useState('');
+  const [editDueDay, setEditDueDay] = useState('');
+
+  useEffect(() => { localStorage.setItem('creditLimit', String(creditLimit)); }, [creditLimit]);
+  useEffect(() => { localStorage.setItem('billPayDay', String(billPayDay)); }, [billPayDay]);
+  useEffect(() => { localStorage.setItem('billDueDay', String(billDueDay)); }, [billDueDay]);
+
+  const handleSaveDates = () => { const pd = parseInt(editPayDay); const dd = parseInt(editDueDay); if (pd >= 1 && pd <= 31) setBillPayDay(pd); if (dd >= 1 && dd <= 31) setBillDueDay(dd); setIsEditingDates(false); };
 
   const creditUsed = totalCreditExpenses;
   const creditAvailable = Math.max(0, creditLimit - creditUsed);
@@ -520,22 +529,38 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({
                 </div>
               </div>
 
-              {/* Due dates */}
-              <div className="flex gap-3 mt-5">
+              {/* Due dates - editable */}
+              <div className="flex flex-wrap gap-3 mt-5 items-center">
                 <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-xl border border-white/10">
                   <span className="text-base">📅</span>
                   <div>
-                    <p className="text-[9px] text-indigo-200 font-bold uppercase">Paga em</p>
-                    <p className="text-sm font-black">{String(billPayDay).padStart(2,'0')}/{String(month + 1).padStart(2,'0')}</p>
+                    <p className="text-[9px] text-indigo-200 font-bold uppercase">Paga em (dia)</p>
+                    {isEditingDates ? (
+                      <input type="number" min="1" max="31" value={editPayDay} onChange={e => setEditPayDay(e.target.value)} className="w-14 bg-white/20 text-white font-black text-sm rounded-lg px-2 py-0.5 outline-none focus:ring-1 focus:ring-white" />
+                    ) : (
+                      <p className="text-sm font-black">{String(billPayDay).padStart(2,'0')}/{String(month + 1).padStart(2,'0')}</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-xl border border-white/10">
                   <span className="text-base">⏰</span>
                   <div>
-                    <p className="text-[9px] text-indigo-200 font-bold uppercase">Vence em</p>
-                    <p className="text-sm font-black">{String(billDueDay).padStart(2,'0')}/{String(month + 2 > 12 ? 1 : month + 2).padStart(2,'0')}</p>
+                    <p className="text-[9px] text-indigo-200 font-bold uppercase">Vence em (dia)</p>
+                    {isEditingDates ? (
+                      <input type="number" min="1" max="31" value={editDueDay} onChange={e => setEditDueDay(e.target.value)} className="w-14 bg-white/20 text-white font-black text-sm rounded-lg px-2 py-0.5 outline-none focus:ring-1 focus:ring-white" />
+                    ) : (
+                      <p className="text-sm font-black">{String(billDueDay).padStart(2,'0')}/{String(month + 2 > 12 ? 1 : month + 2).padStart(2,'0')}</p>
+                    )}
                   </div>
                 </div>
+                {isEditingDates ? (
+                  <div className="flex gap-2 ml-auto">
+                    <button onClick={handleSaveDates} className="px-3 py-1.5 bg-white text-indigo-700 text-xs font-black rounded-xl hover:bg-indigo-50 transition-colors">✓ Salvar</button>
+                    <button onClick={() => setIsEditingDates(false)} className="px-3 py-1.5 bg-white/20 text-white text-xs font-bold rounded-xl hover:bg-white/30 transition-colors">Cancelar</button>
+                  </div>
+                ) : (
+                  <button onClick={() => { setEditPayDay(String(billPayDay)); setEditDueDay(String(billDueDay)); setIsEditingDates(true); }} className="ml-auto px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl transition-colors">✏️ Alterar datas</button>
+                )}
               </div>
             </div>
 
