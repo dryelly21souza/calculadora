@@ -115,16 +115,8 @@ export default function App() {
       setInvestmentReturn(Number(saved.investment_return ?? 0));
     } else {
       setInvestmentReturn(0);
-      
-      // Look for the most recent previous entry to copy vehicle data
-      const previousEntry = history
-        .filter(h => h.reference_month < referenceMonth)
-        .sort((a, b) => b.reference_month.localeCompare(a.reference_month))[0];
-
-      if (previousEntry) {
-        setBaseSalary(Number(previousEntry.base_salary ?? 0));
-        setAdvancePayment(Number(previousEntry.advance_payment ?? 1200));
-      }
+      setBaseSalary(0);
+      setAdvancePayment(0);
     }
   }, [referenceMonth, history]);
   useEffect(() => {
