@@ -185,15 +185,6 @@ export default function App() {
           }
           setInstallmentsDetail(initialDetails);
         }
-      } else {
-        setFinancing(0);
-        setVehicleName('');
-        setVehicleTotalValue(0);
-        setVehiclePaidInstallments(0);
-        setVehicleTotalInstallments(0);
-        setVehicleInterestRate(0);
-        setVehicleDueDay(1);
-        setInstallmentsDetail([]);
       }
     }
   }, [referenceMonth, history]);
