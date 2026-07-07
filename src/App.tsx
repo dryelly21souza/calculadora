@@ -1427,26 +1427,22 @@ export default function App() {
             </div>
             <div className="flex-1 overflow-y-auto space-y-3 pr-1 scrollbar-thin">
               <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
-                <span className="font-bold text-slate-700 text-sm">Salário Base</span>
-                <span className="font-black text-emerald-500 text-sm">{formatCurrency(baseSalary)}</span>
+                <div>
+                  <span className="font-bold text-slate-700 text-sm block">Adiantamento (Dia 15)</span>
+                  <span className="text-[10px] text-slate-400">40% do salário bruto</span>
+                </div>
+                <span className="font-black text-emerald-500 text-sm">{formatCurrency(advancePayment)}</span>
               </div>
               <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
                 <div>
-                  <span className="font-bold text-slate-700 text-sm block">Horas Extras 60%</span>
-                  <span className="text-[10px] text-slate-400">{ot60Days} dias lançados</span>
+                  <span className="font-bold text-slate-700 text-sm block">Pagamento Dia 30 (Sem Creche)</span>
+                  <span className="text-[10px] text-slate-400">Líquido c/ horas extras e deduções</span>
                 </div>
-                <span className="font-black text-emerald-500 text-sm">{formatCurrency(calculations.ot60Value)}</span>
-              </div>
-              <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
-                <div>
-                  <span className="font-bold text-slate-700 text-sm block">Horas Extras 110%</span>
-                  <span className="text-[10px] text-slate-400">{ot110Days} dias lançados</span>
-                </div>
-                <span className="font-black text-emerald-500 text-sm">{formatCurrency(calculations.ot110Value)}</span>
+                <span className="font-black text-emerald-500 text-sm">{formatCurrency(calculations.secondPayment - DAYCARE_ALLOWANCE)}</span>
               </div>
               <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
                 <span className="font-bold text-slate-700 text-sm">Rendimentos e Dividendos</span>
-                <span className="font-black text-emerald-500 text-sm">{formatCurrency(investmentReturn)}</span>
+                <span className="font-black text-emerald-500 text-sm">{formatCurrency(investmentReturn + totalDividends)}</span>
               </div>
             </div>
             <div className="border-t border-slate-100 pt-4 mt-4 flex justify-between items-center">
