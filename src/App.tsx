@@ -160,6 +160,8 @@ export default function App() {
         .sort((a, b) => b.reference_month.localeCompare(a.reference_month))[0];
 
       if (previousEntry) {
+        setBaseSalary(Number(previousEntry.base_salary ?? 0));
+        setAdvancePayment(Number(previousEntry.advance_payment ?? 1200));
         setFinancing(Number(previousEntry.financing ?? 0));
         setVehicleName(previousEntry.vehicle_name ?? '');
         setVehicleTotalValue(Number(previousEntry.vehicle_total_value ?? 0));
