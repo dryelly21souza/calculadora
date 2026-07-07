@@ -1428,24 +1428,54 @@ export default function App() {
               <button onClick={() => setIsIncomeDetailModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"><X className="w-5 h-5" /></button>
             </div>
             <div className="flex-1 overflow-y-auto space-y-3 pr-1 scrollbar-thin">
-              <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
-                <div>
-                  <span className="font-bold text-slate-700 text-sm block">Adiantamento (Dia 15)</span>
-                  <span className="text-[10px] text-slate-400">40% do salário bruto</span>
-                </div>
-                <span className="font-black text-emerald-500 text-sm">{formatCurrency(advancePayment)}</span>
-              </div>
-              <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
-                <div>
-                  <span className="font-bold text-slate-700 text-sm block">Pagamento Dia 30 (Sem Creche)</span>
-                  <span className="text-[10px] text-slate-400">Líquido c/ horas extras e deduções</span>
-                </div>
-                <span className="font-black text-emerald-500 text-sm">{formatCurrency(calculations.secondPayment - DAYCARE_ALLOWANCE)}</span>
-              </div>
-              <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
-                <span className="font-bold text-slate-700 text-sm">Rendimentos e Dividendos</span>
-                <span className="font-black text-emerald-500 text-sm">{formatCurrency(investmentReturn + totalDividends)}</span>
-              </div>
+              {(() => {
+                const baseInss = baseSalary * 0.08;
+                const netBaseSalary = baseSalary - baseInss - calculations.fixedDeductionsTotal;
+                const pagDia30SemExtra = netBaseSalary - advancePayment;
+                const ot60Net = calculations.ot60Value * 0.92;
+                const ot110Net = calculations.ot110Value * 0.92;
+
+                return (
+                  <>
+                    <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                      <div>
+                        <span className="font-bold text-slate-700 text-sm block">Adiantamento (Dia 15)</span>
+                        <span className="text-[10px] text-slate-400">40% do salário bruto</span>
+                      </div>
+                      <span className="font-black text-emerald-500 text-sm">{formatCurrency(advancePayment)}</span>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                      <div>
+                        <span className="font-bold text-slate-700 text-sm block">Pagamento Dia 30 (Sem Extra e Creche)</span>
+                        <span className="text-[10px] text-slate-400">Salário Base Líquido</span>
+                      </div>
+                      <span className="font-black text-emerald-500 text-sm">{formatCurrency(pagDia30SemExtra)}</span>
+                    </div>
+                    {ot60Net > 0 && (
+                      <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                        <div>
+                          <span className="font-bold text-slate-700 text-sm block">Horas Extras 60%</span>
+                          <span className="text-[10px] text-slate-400">Valor líquido (-8% INSS)</span>
+                        </div>
+                        <span className="font-black text-emerald-500 text-sm">{formatCurrency(ot60Net)}</span>
+                      </div>
+                    )}
+                    {ot110Net > 0 && (
+                      <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                        <div>
+                          <span className="font-bold text-slate-700 text-sm block">Horas Extras 110%</span>
+                          <span className="text-[10px] text-slate-400">Valor líquido (-8% INSS)</span>
+                        </div>
+                        <span className="font-black text-emerald-500 text-sm">{formatCurrency(ot110Net)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                      <span className="font-bold text-slate-700 text-sm">Rendimentos e Dividendos</span>
+                      <span className="font-black text-emerald-500 text-sm">{formatCurrency(investmentReturn + totalDividends)}</span>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
             <div className="border-t border-slate-100 pt-4 mt-4 flex justify-between items-center">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Geral</span>
