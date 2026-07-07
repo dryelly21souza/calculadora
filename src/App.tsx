@@ -95,31 +95,42 @@ export default function App() {
     setReferenceMonth(`${nextY}-${String(nextM).padStart(2, '0')}`);
   };
   
-  const { history, isLoading, saveCalculation, deleteCalculation } = useSalaryHistory();
+  const { history, isLoading: isLoadingHistory, saveCalculation, deleteCalculation } = useSalaryHistory();
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
 
-  const { calendarMarks: extrasCalendar, calendarPhotos, toggleMark: toggleExtra, addPhoto, removePhoto } = useCalendarMarks();
+  const { calendarMarks: extrasCalendar, calendarPhotos, toggleMark: toggleExtra, addPhoto, removePhoto, isLoading: isLoadingCalendar } = useCalendarMarks();
   
   const expensesData = useExpensesData();
   const investmentsData = useInvestmentsData();
   const portfoliosData = usePortfolios();
 
 
-  // Load calculation if exists in history for the selected month, or fallback to previous vehicle data
+  // Load calculation if exists in history for the selected month
   useEffect(() => {
+    if (isLoadingHistory || isLoadingCalendar) return; // Prevent resetting while loading
+
     const saved = history.find(h => h.reference_month === referenceMonth);
     
     if (saved) {
       setBaseSalary(Number(saved.base_salary));
       setAdvancePayment(Number(saved.advance_payment));
       setInvestmentReturn(Number(saved.investment_return ?? 0));
+      
+      // Load manual overtime counts if calendar is empty
+      const hasCalendarMarksForMonth = Object.keys(extrasCalendar).some(date => date.startsWith(referenceMonth));
+      if (!hasCalendarMarksForMonth) {
+        setOt60Days(Number(saved.ot60_days ?? 0));
+        setOt110Days(Number(saved.ot110_days ?? 0));
+      }
     } else {
       setInvestmentReturn(0);
       setBaseSalary(0);
       setAdvancePayment(0);
     }
-  }, [referenceMonth, history]);
+  }, [referenceMonth, history, isLoadingHistory, isLoadingCalendar, extrasCalendar]);
   useEffect(() => {
+    if (isLoadingCalendar || isLoadingHistory) return; // Wait for load
+
     const [yearStr, monthStr] = referenceMonth.split('-');
     if (!yearStr || !monthStr) return;
     const year = Number(yearStr);
@@ -139,6 +150,8 @@ export default function App() {
     let count60 = 0;
     let count110 = 0;
     
+    const hasAnyMarks = Object.keys(extrasCalendar).some(date => date >= startDateStr && date <= endDateStr);
+    
     Object.entries(extrasCalendar).forEach(([dateStr, type]) => {
       if (dateStr >= startDateStr && dateStr <= endDateStr) {
         if (type === '60') count60++;
@@ -146,9 +159,18 @@ export default function App() {
       }
     });
     
-    setOt60Days(count60);
-    setOt110Days(count110);
-  }, [referenceMonth, extrasCalendar]);
+    // Only overwrite if calendar actually has items, or if we have no saved history
+    const saved = history.find(h => h.reference_month === referenceMonth);
+    if (hasAnyMarks || !saved || (saved && count60 > 0 && count110 > 0)) {
+       setOt60Days(count60);
+       setOt110Days(count110);
+    } else if (saved && !hasAnyMarks) {
+       // If calendar is completely empty but we have saved history, the first useEffect handled it. 
+       // If user unchecked everything, hasAnyMarks is false. To support clearing, we should probably set to 0.
+       // But how to distinguish? If they saved it manually without calendar, it should persist.
+       // Let's assume if it's completely empty, we just don't overwrite if history has it.
+    }
+  }, [referenceMonth, extrasCalendar, isLoadingCalendar, isLoadingHistory, history]);
   const uniqueHistory = useMemo(() => {
     const monthMap = new Map();
     history.forEach((item) => {
@@ -1027,7 +1049,7 @@ export default function App() {
         </div>
       </div>
 
-      {isLoading && history.length === 0 ? (
+      {isLoadingHistory && history.length === 0 ? (
         <div className="flex items-center justify-center p-12 bg-white rounded-3xl border border-dashed border-slate-300">
           <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
         </div>

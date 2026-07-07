@@ -121,5 +121,6 @@ export function useCalendarMarks() {
     removePhoto,
     isLoading,
     error,
+    loadData
   };
 }
