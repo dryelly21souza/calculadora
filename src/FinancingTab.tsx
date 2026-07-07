@@ -412,19 +412,6 @@ export const FinancingTab: React.FC<FinancingTabProps> = ({
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Taxa de Juros (% a.m.)</label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={vehicleInterestRate}
-                    onChange={(e) => setVehicleInterestRate(Number(e.target.value))}
-                    className="w-full pr-12 pl-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-bold text-slate-700 transition-all text-sm"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">% a.m.</span>
-                </div>
-              </div>
             </div>
 
             {/* Quick Actions */}
